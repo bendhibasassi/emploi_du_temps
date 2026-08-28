@@ -1,14 +1,14 @@
-<!-- app/templates/professeurs.html -->
+<!-- app/templates/matieres.html -->
 {% extends "base.html" %}
 
 {% block content %}
 <div class="row">
     <div class="col-md-12">
         <div class="d-flex justify-content-between align-items-center">
-            <h1>👨‍🏫 Professeurs</h1>
+            <h1><i class="fas fa-book"></i> Matières</h1>
             <div>
-                <a href="{{ url_for('main.ajouter_professeur') }}" class="btn btn-success">
-                    <i class="fas fa-user-plus"></i> Ajouter
+                <a href="{{ url_for('main.ajouter_matiere') }}" class="btn btn-success">
+                    <i class="fas fa-plus"></i> Ajouter une matière
                 </a>
                 <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
                     <i class="fas fa-home"></i> Accueil
@@ -20,30 +20,30 @@
 </div>
 
 <div class="row">
-    {% for professeur in professeurs %}
+    {% for matiere in matieres %}
         <div class="col-md-4 mb-3">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">
-                        {{ professeur.prenom }} {{ professeur.nom }}
-                        {% if not professeur.actif %}
-                            <span class="badge bg-danger">Inactif</span>
+                        <i class="fas fa-book text-primary"></i>
+                        {{ matiere.nom_matiere }}
+                        {% if not matiere.actif %}
+                            <span class="badge bg-danger">Inactive</span>
                         {% endif %}
                     </h5>
                     <p class="card-text">
-                        <strong>Grade :</strong> {{ professeur.grade or 'Non renseigné' }}<br>
-                        <strong>Email :</strong> {{ professeur.email or 'Non renseigné' }}<br>
-                        <strong>Téléphone :</strong> {{ professeur.telephone or 'Non renseigné' }}<br>
-                        <strong>ID :</strong> {{ professeur.id_professeur }}
+                        <strong>Code :</strong> {{ matiere.code_matiere }}<br>
+                        <strong>ID :</strong> {{ matiere.id_matiere }}
                     </p>
                     <div class="d-flex gap-2">
-                        <a href="{{ url_for('main.modifier_professeur', id_professeur=professeur.id_professeur) }}" 
+                        <a href="{{ url_for('main.modifier_matiere', id_matiere=matiere.id_matiere) }}"
                            class="btn btn-warning btn-sm">
                             <i class="fas fa-edit"></i> Modifier
                         </a>
                         <form method="POST"
-                              action="{{ url_for('main.supprimer_professeur', id_professeur=professeur.id_professeur) }}"
-                              onsubmit="return confirm('Supprimer ce professeur ?');">
+                              action="{{ url_for('main.supprimer_matiere', id_matiere=matiere.id_matiere) }}"
+                              style="display:inline;"
+                              onsubmit="return confirm('Supprimer la matière {{ matiere.nom_matiere }} ?')">
                             <button type="submit" class="btn btn-danger btn-sm">
                                 <i class="fas fa-trash"></i> Supprimer
                             </button>
@@ -55,8 +55,9 @@
     {% else %}
         <div class="col-12">
             <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i> Aucun professeur enregistré.
-                <a href="{{ url_for('main.ajouter_professeur') }}" class="alert-link">Ajouter un professeur</a>
+                <i class="fas fa-info-circle"></i>
+                Aucune matière enregistrée.
+                <a href="{{ url_for('main.ajouter_matiere') }}" class="alert-link">Ajouter une matière</a>
             </div>
         </div>
     {% endfor %}

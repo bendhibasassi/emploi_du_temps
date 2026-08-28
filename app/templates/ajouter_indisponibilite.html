@@ -1,0 +1,87 @@
+<!-- app/templates/ajouter_indisponibilite.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h4><i class="fas fa-ban"></i> Ajouter une indisponibilité</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="id_annee" class="form-label">Année universitaire</label>
+                        <select name="id_annee" id="id_annee" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for annee in annees %}
+                                <option value="{{ annee.id_annee }}">{{ annee.libelle }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_professeur" class="form-label">Professeur</label>
+                        <select name="id_professeur" id="id_professeur" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for prof in professeurs %}
+                                <option value="{{ prof.id_professeur }}">{{ prof.prenom }} {{ prof.nom }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="jour" class="form-label">Jour</label>
+                        <select name="jour" id="jour" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for key, value in JOURS.items() %}
+                                <option value="{{ key }}">{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_creneau" class="form-label">Créneau horaire</label>
+                        <select name="id_creneau" id="id_creneau" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for creneau in creneaux %}
+                                <option value="{{ creneau.id_creneau }}">{{ creneau.heure_debut }} - {{ creneau.heure_fin }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="type_contrainte" class="form-label">Type de contrainte</label>
+                        <select name="type_contrainte" id="type_contrainte" class="form-select">
+                            <option value="INTERDIT">🚫 INTERDIT - Bloque totalement</option>
+                            <option value="EVITER">⚠️ ÉVITER - Pénalise si utilisé</option>
+                            <option value="PREFERE">✅ PRÉFÉRÉ - Encourage si utilisé</option>
+                        </select>
+                        <div class="form-text">
+                            <strong>INTERDIT</strong> : Le professeur ne peut absolument pas être planifié.<br>
+                            <strong>ÉVITER</strong> : Planifier ici est possible mais pénalisé.<br>
+                            <strong>PRÉFÉRÉ</strong> : Planifier ici est encouragé.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="commentaire" class="form-label">Commentaire (optionnel)</label>
+                        <input type="text" name="commentaire" id="commentaire" class="form-control"
+                               placeholder="Ex: Réunion départementale, cours de sport, etc.">
+                    </div>
+
+                    <button type="submit" class="btn btn-danger w-100">
+                        <i class="fas fa-save"></i> Ajouter l'indisponibilité
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="mt-3 text-center">
+            <a href="{{ url_for('main.indisponibilites') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Retour à la liste
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

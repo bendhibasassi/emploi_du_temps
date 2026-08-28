@@ -1,0 +1,46 @@
+<!-- app/templates/ajouter_matiere.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4><i class="fas fa-plus-circle"></i> Ajouter une matière</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="code_matiere" class="form-label">Code matière <span class="text-danger">*</span></label>
+                        <input type="text" name="code_matiere" id="code_matiere" class="form-control"
+                               placeholder="DROIT101" required>
+                        <div class="form-text">Ex: DROIT101, MATH201, INF301</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="nom_matiere" class="form-label">Nom <span class="text-danger">*</span></label>
+                        <input type="text" name="nom_matiere" id="nom_matiere" class="form-control"
+                               placeholder="Introduction au droit" required>
+                        <div class="form-text">Ex: Introduction au droit, Algèbre linéaire, Programmation Python</div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Rappel :</strong> Le code matière doit être unique et sera utilisé pour identifier la matière.
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-save"></i> Ajouter la matière
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="mt-3 text-center">
+            <a href="{{ url_for('main.matieres') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Retour à la liste
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

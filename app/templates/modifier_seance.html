@@ -1,0 +1,67 @@
+<!-- app/templates/modifier_seance.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-warning">
+                <h4><i class="fas fa-edit"></i> Modifier la séance</h4>
+            </div>
+            <div class="card-body">
+                <p class="mb-4">
+                    <strong>Cours :</strong>
+                    {% if seance.affectation %}
+                        {{ seance.affectation.professeur.prenom }} {{ seance.affectation.professeur.nom }}
+                        - {{ seance.affectation.matiere.nom_matiere }}
+                    {% else %}
+                        Séance #{{ seance.id_seance }}
+                    {% endif %}
+                </p>
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="jour" class="form-label">Jour</label>
+                        <select name="jour" id="jour" class="form-select" required>
+                            {% for key, value in JOURS.items() %}
+                                <option value="{{ key }}" {% if seance.jour == key %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_creneau" class="form-label">Créneau horaire</label>
+                        <select name="id_creneau" id="id_creneau" class="form-select" required>
+                            {% for creneau in creneaux %}
+                                <option value="{{ creneau.id_creneau }}" {% if seance.id_creneau == creneau.id_creneau %}selected{% endif %}>
+                                    {{ creneau.heure_debut }} - {{ creneau.heure_fin }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="id_salle" class="form-label">Salle</label>
+                        <select name="id_salle" id="id_salle" class="form-select" required>
+                            {% for salle in salles %}
+                                <option value="{{ salle.id_salle }}" {% if seance.id_salle == salle.id_salle %}selected{% endif %}>
+                                    {{ salle.nom_salle }} ({{ salle.capacite }} places)
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="d-flex justify-content-between gap-2">
+                        <a href="{{ url_for('main.emploi_du_temps') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Annuler
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i> Enregistrer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

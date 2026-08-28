@@ -1,6 +1,6 @@
 # app/models.py
 from app import db
-from datetime import date, time
+from datetime import date, time, datetime
 
 class AnneeUniversitaire(db.Model):
     __tablename__ = "tbl_annees_univ"
@@ -138,3 +138,47 @@ class Seance(db.Model):
         db.UniqueConstraint('id_annee', 'jour', 'id_creneau', 'id_salle', 'semaine_type', 
                            name='uq_seance_salle'),
     )
+
+class Indisponibilite(db.Model):
+    __tablename__ = "tbl_indisponibilites"
+    
+    id_indisponibilite = db.Column(db.Integer, primary_key=True)
+    id_annee = db.Column(db.Integer, db.ForeignKey('tbl_annees_univ.id_annee'), nullable=False)
+    id_professeur = db.Column(db.Integer, db.ForeignKey('tbl_professeurs.id_professeur'), nullable=False)
+    jour = db.Column(db.Integer, nullable=False)  # 1=Lundi, 2=Mardi, ..., 7=Dimanche
+    id_creneau = db.Column(db.Integer, db.ForeignKey('tbl_creneaux.id_creneau'), nullable=False)
+    type_contrainte = db.Column(db.String(15), nullable=False, default='INTERDIT')
+    commentaire = db.Column(db.String(500))
+    actif = db.Column(db.Boolean, default=True)
+
+    # Relations
+    professeur = db.relationship('Professeur', backref='indisponibilites', lazy=True)
+    creneau = db.relationship('Creneau', backref='indisponibilites', lazy=True)
+    annee = db.relationship('AnneeUniversitaire', backref='indisponibilites', lazy=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('id_annee', 'id_professeur', 'jour', 'id_creneau',
+                           name='uq_indisponibilite_unique'),
+        db.CheckConstraint('jour BETWEEN 1 AND 7', name='ck_indisponibilite_jour'),
+        db.CheckConstraint("type_contrainte IN ('INTERDIT', 'EVITER', 'PREFERE')",
+                          name='ck_indisponibilite_type'),
+    )
+
+    def __repr__(self):
+        return f"<Indisponibilite {self.professeur.nom} {self.jour} {self.creneau.heure_debut}>"
+
+class Historique(db.Model):
+    __tablename__ = "tbl_historique"
+    
+    id_historique = db.Column(db.Integer, primary_key=True)
+    utilisateur = db.Column(db.String(100), nullable=False, default='Système')
+    action = db.Column(db.String(20), nullable=False)  # AJOUT, MODIFICATION, SUPPRESSION
+    type_objet = db.Column(db.String(30), nullable=False)  # PROFESSEUR, SEANCE, INDISPONIBILITE, etc.
+    id_objet = db.Column(db.Integer, nullable=False)
+    ancienne_valeur = db.Column(db.Text)
+    nouvelle_valeur = db.Column(db.Text)
+    date_heure = db.Column(db.DateTime, default=datetime.utcnow)
+    ip_adresse = db.Column(db.String(45))
+    
+    def __repr__(self):
+        return f"<Historique {self.action} {self.type_objet} {self.id_objet} à {self.date_heure}>"

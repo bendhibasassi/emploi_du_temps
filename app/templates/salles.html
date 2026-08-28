@@ -1,0 +1,69 @@
+<!-- app/templates/salles.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-door-open"></i> Salles</h1>
+            <div>
+                <a href="{{ url_for('main.ajouter_salle') }}" class="btn btn-success">
+                    <i class="fas fa-plus"></i> Ajouter une salle
+                </a>
+                <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
+                    <i class="fas fa-home"></i> Accueil
+                </a>
+            </div>
+        </div>
+        <hr>
+    </div>
+</div>
+
+<div class="row">
+    {% for salle in salles %}
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        {{ salle.nom_salle }}
+                        {% if not salle.actif %}
+                            <span class="badge bg-danger">Inactive</span>
+                        {% endif %}
+                    </h5>
+                    <p class="card-text">
+                        <strong>Code :</strong> {{ salle.code_salle }}<br>
+                        <strong>Type :</strong>
+                        <span class="badge bg-info">
+                            {{ salle.type_salle }}
+                        </span><br>
+                        <strong>Capacité :</strong> {{ salle.capacite }} places<br>
+                        <strong>Bâtiment :</strong> {{ salle.batiment or 'Non renseigné' }}
+                    </p>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('main.modifier_salle', id_salle=salle.id_salle) }}"
+                           class="btn btn-warning btn-sm">
+                            <i class="fas fa-edit"></i> Modifier
+                        </a>
+                        <form method="POST"
+                              action="{{ url_for('main.supprimer_salle', id_salle=salle.id_salle) }}"
+                              style="display:inline;"
+                              onsubmit="return confirm('Supprimer la salle {{ salle.nom_salle }} ?')">
+                            <button type="submit" class="btn btn-danger btn-sm">
+                                <i class="fas fa-trash"></i> Supprimer
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                Aucune salle enregistrée.
+                <a href="{{ url_for('main.ajouter_salle') }}" class="alert-link">Ajouter une salle</a>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

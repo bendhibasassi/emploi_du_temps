@@ -1,0 +1,70 @@
+<!-- app/templates/modifier_salle.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h4><i class="fas fa-edit"></i> Modifier la salle</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="code_salle" class="form-label">Code salle <span class="text-danger">*</span></label>
+                            <input type="text" name="code_salle" id="code_salle" class="form-control"
+                                   value="{{ salle.code_salle }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="nom_salle" class="form-label">Nom <span class="text-danger">*</span></label>
+                            <input type="text" name="nom_salle" id="nom_salle" class="form-control"
+                                   value="{{ salle.nom_salle }}" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="type_salle" class="form-label">Type</label>
+                            <select name="type_salle" id="type_salle" class="form-select">
+                                <option value="AMPHI" {% if salle.type_salle == 'AMPHI' %}selected{% endif %}>🏛️ Amphi</option>
+                                <option value="SALLE" {% if salle.type_salle == 'SALLE' %}selected{% endif %}>🪑 Salle de cours</option>
+                                <option value="TD" {% if salle.type_salle == 'TD' %}selected{% endif %}>📝 Salle de TD</option>
+                                <option value="LABO" {% if salle.type_salle == 'LABO' %}selected{% endif %}>🔬 Laboratoire</option>
+                                <option value="AUTRE" {% if salle.type_salle == 'AUTRE' %}selected{% endif %}>📌 Autre</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="capacite" class="form-label">Capacité <span class="text-danger">*</span></label>
+                            <input type="number" name="capacite" id="capacite" class="form-control"
+                                   value="{{ salle.capacite }}" min="1" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="batiment" class="form-label">Bâtiment</label>
+                        <input type="text" name="batiment" id="batiment" class="form-control"
+                               value="{{ salle.batiment or '' }}">
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="actif" id="actif" class="form-check-input"
+                               {% if salle.actif %}checked{% endif %}>
+                        <label for="actif" class="form-check-label">Salle active</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-warning w-100">
+                        <i class="fas fa-save"></i> Modifier la salle
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="mt-3 text-center">
+            <a href="{{ url_for('main.salles') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Retour à la liste
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

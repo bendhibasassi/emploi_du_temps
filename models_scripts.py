@@ -114,3 +114,23 @@ class Seance(Base):
         UniqueConstraint("id_annee", "jour", "id_creneau", "id_salle", "semaine_type", 
                         name="uq_seance_salle"),
     )
+
+class Indisponibilite(Base):
+    __tablename__ = "tbl_indisponibilites"
+
+    id_indisponibilite = Column(Integer, primary_key=True)
+    id_annee = Column(Integer, ForeignKey("tbl_annees_univ.id_annee"), nullable=False)
+    id_professeur = Column(Integer, ForeignKey("tbl_professeurs.id_professeur"), nullable=False)
+    jour = Column(Integer, nullable=False)
+    id_creneau = Column(Integer, ForeignKey("tbl_creneaux.id_creneau"), nullable=False)
+    type_contrainte = Column(String(15), nullable=False, default="INTERDIT")
+    commentaire = Column(String(500))
+    actif = Column(Boolean, default=True)
+
+    __table_args__ = (
+        UniqueConstraint("id_annee", "id_professeur", "jour", "id_creneau",
+                         name="uq_indisponibilite_unique"),
+        CheckConstraint("jour BETWEEN 1 AND 7", name="ck_indisponibilite_jour"),
+        CheckConstraint("type_contrainte IN ('INTERDIT', 'EVITER', 'PREFERE')",
+                        name="ck_indisponibilite_type"),
+    )

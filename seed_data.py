@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models_scripts import (
     Base, AnneeUniversitaire, Niveau, Section, Professeur, 
-    Matiere, Salle, Creneau, Affectation
+    Matiere, Salle, Creneau, Affectation, Indisponibilite
 )
 
 print("🌱 Ajout des données de test...")
@@ -93,6 +93,9 @@ with Session() as session:
                 print(f"ℹ️ Professeur déjà existant : {prof.prenom} {prof.nom}")
             professeurs[data["email"]] = prof
 
+        prof_jean = professeurs["jean.dupont@univ.fr"]
+        prof_sophie = professeurs["sophie.martin@univ.fr"]
+
         # 5. Matière
         matiere = session.query(Matiere).filter_by(code_matiere="DROIT101").first()
         if matiere is None:
@@ -167,6 +170,42 @@ with Session() as session:
                 print(f"✅ Affectation créée : {prof.prenom} {prof.nom} -> {matiere.nom_matiere} (ID: {affectation.id_affectation})")
             else:
                 print(f"ℹ️ Affectation déjà existante pour {prof.prenom} {prof.nom}")
+
+        # 9. Indisponibilités
+        print("\n📋 Ajout des indisponibilités...")
+
+        indispos_data = [
+            # Pour Jean Dupont
+            (prof_jean.id_professeur, 2, 1, "INTERDIT", "Cours de sport le mardi matin"),
+            (prof_jean.id_professeur, 5, 4, "EVITER", "Réunion le vendredi après-midi"),
+            # Pour Sophie Martin
+            (prof_sophie.id_professeur, 3, 2, "PREFERE", "Disponible le mercredi matin"),
+        ]
+
+        for id_prof, jour, id_creneau, type_contrainte, commentaire in indispos_data:
+            existing = session.query(Indisponibilite).filter_by(
+                id_annee=annee.id_annee,
+                id_professeur=id_prof,
+                jour=jour,
+                id_creneau=id_creneau
+            ).first()
+
+            if existing is None:
+                indispo = Indisponibilite(
+                    id_annee=annee.id_annee,
+                    id_professeur=id_prof,
+                    jour=jour,
+                    id_creneau=id_creneau,
+                    type_contrainte=type_contrainte,
+                    commentaire=commentaire,
+                    actif=True
+                )
+                session.add(indispo)
+                print(f"   ✅ Indisponibilité : {type_contrainte} pour ID {id_prof} - {commentaire}")
+            else:
+                print(f"   ℹ️ Indisponibilité déjà existante pour ID {id_prof}")
+
+        session.flush()
 
         # Validation finale
         session.commit()

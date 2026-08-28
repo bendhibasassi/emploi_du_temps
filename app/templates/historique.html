@@ -1,0 +1,93 @@
+<!-- app/templates/historique.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-history"></i> Historique des modifications</h1>
+            <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
+                <i class="fas fa-home"></i> Accueil
+            </a>
+        </div>
+        <hr>
+
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            Toutes les actions (ajout, modification, suppression) sont tracées ici.
+        </div>
+    </div>
+</div>
+
+{% if historiques.items %}
+<div class="table-responsive">
+    <table class="table table-bordered table-hover">
+        <thead class="table-primary">
+            <tr>
+                <th>Date/Heure</th>
+                <th>Utilisateur</th>
+                <th>Action</th>
+                <th>Type</th>
+                <th>ID</th>
+                <th>Ancienne valeur</th>
+                <th>Nouvelle valeur</th>
+                <th>IP</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for h in historiques.items %}
+            <tr>
+                <td><small>{{ h.date_heure.strftime('%d/%m/%Y %H:%M') }}</small></td>
+                <td>{{ h.utilisateur }}</td>
+                <td>
+                    {% if h.action == 'AJOUT' %}
+                        <span class="badge bg-success">AJOUT</span>
+                    {% elif h.action == 'MODIFICATION' %}
+                        <span class="badge bg-warning text-dark">MODIFICATION</span>
+                    {% elif h.action == 'SUPPRESSION' %}
+                        <span class="badge bg-danger">SUPPRESSION</span>
+                    {% else %}
+                        <span class="badge bg-secondary">{{ h.action }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ h.type_objet }}</td>
+                <td>{{ h.id_objet }}</td>
+                <td><small>{{ h.ancienne_valeur or '-' }}</small></td>
+                <td><small>{{ h.nouvelle_valeur or '-' }}</small></td>
+                <td><small>{{ h.ip_adresse or '-' }}</small></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<nav aria-label="Pagination">
+    <ul class="pagination justify-content-center">
+        {% if historiques.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.historique', page=historiques.prev_num) }}">Précédent</a>
+            </li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">Précédent</span></li>
+        {% endif %}
+
+        <li class="page-item active">
+            <span class="page-link">Page {{ historiques.page }} / {{ historiques.pages }}</span>
+        </li>
+
+        {% if historiques.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.historique', page=historiques.next_num) }}">Suivant</a>
+            </li>
+        {% else %}
+            <li class="page-item disabled"><span class="page-link">Suivant</span></li>
+        {% endif %}
+    </ul>
+</nav>
+{% else %}
+<div class="alert alert-warning">
+    <i class="fas fa-info-circle"></i>
+    Aucune entrée dans l'historique pour le moment.
+</div>
+{% endif %}
+{% endblock %}

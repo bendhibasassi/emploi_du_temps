@@ -13,45 +13,76 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        body {
-            padding-top: 70px;
-            background-color: #f8f9fa;
+        /* === RÉINITIALISATION === */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
+        body {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+        }
+
+        /* === CONTENEUR PRINCIPAL AVEC MARGE SUFFISANTE === */
+        .main-container {
+            margin-top: 80px;  /* ← LA SOLUTION ! */
+            padding: 20px;
+        }
+
         .navbar-brand {
             font-weight: bold;
             font-size: 1.4rem;
         }
+
         .navbar-brand i {
             margin-right: 10px;
         }
+
         .flash-messages {
-            margin-top: 20px;
+            margin-top: 10px;
         }
+
         .card {
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
+
         .card-header {
             border-radius: 10px 10px 0 0 !important;
         }
+
         .btn {
             border-radius: 8px;
         }
+
         .table {
             background-color: white;
             border-radius: 10px;
             overflow: hidden;
         }
+
         .badge {
             font-size: 0.9rem;
             padding: 5px 12px;
         }
+
         footer {
             margin-top: 50px;
             padding: 20px 0;
             text-align: center;
             color: #6c757d;
             border-top: 1px solid #dee2e6;
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            .main-container {
+                margin-top: 60px;
+                padding: 10px;
+            }
         }
     </style>
 </head>
@@ -88,6 +119,16 @@
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.salles') }}">
+                            <i class="fas fa-door-open"></i> Salles
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.matieres') }}">
+                            <i class="fas fa-book"></i> Matières
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.ajouter_professeur') }}">
                             <i class="fas fa-user-plus"></i> Ajouter Prof
                         </a>
@@ -95,6 +136,16 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('main.importer_professeurs') }}">
                             <i class="fas fa-file-import"></i> Importer Excel
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.indisponibilites') }}">
+                            <i class="fas fa-ban"></i> Indisponibilités
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.historique') }}">
+                            <i class="fas fa-history"></i> Historique
                         </a>
                     </li>
                 </ul>
@@ -106,7 +157,7 @@
     </nav>
 
     <!-- CONTENU PRINCIPAL -->
-    <div class="container">
+    <div class="container main-container">
         <!-- Messages flash -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}

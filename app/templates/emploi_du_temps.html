@@ -25,6 +25,7 @@
                 <th>Heure fin</th>
                 <th>Salle</th>
                 <th>Capacité</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -38,6 +39,21 @@
                 <td>{{ seance.fin }}</td>
                 <td>{{ seance.salle }}</td>
                 <td>{{ seance.capacite }}</td>
+                <td>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('main.modifier_seance', id_seance=seance.id_seance) }}"
+                           class="btn btn-warning btn-sm">
+                            <i class="fas fa-edit"></i> Modifier
+                        </a>
+                        <form method="POST"
+                              action="{{ url_for('main.supprimer_seance', id_seance=seance.id_seance) }}"
+                              onsubmit="return confirm('Supprimer cette séance ?');">
+                            <button type="submit" class="btn btn-danger btn-sm">
+                                <i class="fas fa-trash"></i> Supprimer
+                            </button>
+                        </form>
+                    </div>
+                </td>
             </tr>
             {% endfor %}
         </tbody>

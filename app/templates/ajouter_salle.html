@@ -1,0 +1,73 @@
+<!-- app/templates/ajouter_salle.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4><i class="fas fa-plus-circle"></i> Ajouter une salle</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="code_salle" class="form-label">Code salle <span class="text-danger">*</span></label>
+                            <input type="text" name="code_salle" id="code_salle" class="form-control"
+                                   placeholder="A101" required>
+                            <div class="form-text">Ex: A101, B201, C301</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="nom_salle" class="form-label">Nom <span class="text-danger">*</span></label>
+                            <input type="text" name="nom_salle" id="nom_salle" class="form-control"
+                                   placeholder="Amphi A" required>
+                            <div class="form-text">Ex: Amphi A, Salle B201, Labo C301</div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="type_salle" class="form-label">Type</label>
+                            <select name="type_salle" id="type_salle" class="form-select">
+                                <option value="AMPHI">🏛️ Amphi</option>
+                                <option value="SALLE">🪑 Salle de cours</option>
+                                <option value="TD">📝 Salle de TD</option>
+                                <option value="LABO">🔬 Laboratoire</option>
+                                <option value="AUTRE">📌 Autre</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="capacite" class="form-label">Capacité <span class="text-danger">*</span></label>
+                            <input type="number" name="capacite" id="capacite" class="form-control"
+                                   placeholder="100" min="1" required>
+                            <div class="form-text">Nombre de places assises</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="batiment" class="form-label">Bâtiment</label>
+                        <input type="text" name="batiment" id="batiment" class="form-control"
+                               placeholder="Bâtiment A">
+                        <div class="form-text">Optionnel</div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Rappel :</strong> Les salles avec une capacité inférieure à l'effectif d'une section ne pourront pas être utilisées.
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-save"></i> Ajouter la salle
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="mt-3 text-center">
+            <a href="{{ url_for('main.salles') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Retour à la liste
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

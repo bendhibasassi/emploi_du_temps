@@ -6,10 +6,11 @@
     <div class="col-md-8 mx-auto">
         <div class="card">
             <div class="card-header bg-primary text-white">
-                <h4>➕ Ajouter une séance</h4>
+                <h4><i class="fas fa-plus-circle"></i> Ajouter une séance</h4>
             </div>
             <div class="card-body">
                 <form method="POST">
+                    <!-- === ANNÉE === -->
                     <div class="mb-3">
                         <label for="id_annee" class="form-label">Année universitaire</label>
                         <select name="id_annee" id="id_annee" class="form-select" required>
@@ -20,16 +21,51 @@
                         </select>
                     </div>
 
+                    <!-- === PROFESSEUR === -->
                     <div class="mb-3">
-                        <label for="id_affectation" class="form-label">Cours</label>
-                        <select name="id_affectation" id="id_affectation" class="form-select" required>
+                        <label for="id_professeur" class="form-label">Professeur</label>
+                        <select name="id_professeur" id="id_professeur" class="form-select" required>
                             <option value="">Sélectionner...</option>
-                            {% for aff in affectations %}
-                                <option value="{{ aff.id }}">{{ aff.prof }} - {{ aff.matiere }} ({{ aff.section }})</option>
+                            {% for prof in professeurs %}
+                                <option value="{{ prof.id_professeur }}">{{ prof.prenom }} {{ prof.nom }}</option>
                             {% endfor %}
                         </select>
                     </div>
 
+                    <!-- === MATIÈRE === -->
+                    <div class="mb-3">
+                        <label for="id_matiere" class="form-label">Matière</label>
+                        <select name="id_matiere" id="id_matiere" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for matiere in matieres %}
+                                <option value="{{ matiere.id_matiere }}">{{ matiere.nom_matiere }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- === SECTION === -->
+                    <div class="mb-3">
+                        <label for="id_section" class="form-label">Section</label>
+                        <select name="id_section" id="id_section" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for section in sections %}
+                                <option value="{{ section.id_section }}">{{ section.libelle }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- === TYPE D'ENSEIGNEMENT === -->
+                    <div class="mb-3">
+                        <label for="type_enseignement" class="form-label">Type d'enseignement</label>
+                        <select name="type_enseignement" id="type_enseignement" class="form-select">
+                            <option value="CM">📖 Cours Magistral (CM)</option>
+                            <option value="TD">📝 Travaux Dirigés (TD)</option>
+                            <option value="TP">🔬 Travaux Pratiques (TP)</option>
+                            <option value="AUTRE">📌 Autre</option>
+                        </select>
+                    </div>
+
+                    <!-- === JOUR === -->
                     <div class="mb-3">
                         <label for="jour" class="form-label">Jour</label>
                         <select name="jour" id="jour" class="form-select" required>
@@ -40,6 +76,7 @@
                         </select>
                     </div>
 
+                    <!-- === CRÉNEAU === -->
                     <div class="mb-3">
                         <label for="id_creneau" class="form-label">Créneau horaire</label>
                         <select name="id_creneau" id="id_creneau" class="form-select" required>
@@ -50,6 +87,7 @@
                         </select>
                     </div>
 
+                    <!-- === SALLE === -->
                     <div class="mb-3">
                         <label for="id_salle" class="form-label">Salle</label>
                         <select name="id_salle" id="id_salle" class="form-select" required>
@@ -60,6 +98,7 @@
                         </select>
                     </div>
 
+                    <!-- === TYPE DE SEMAINE === -->
                     <div class="mb-3">
                         <label for="semaine_type" class="form-label">Type de semaine</label>
                         <select name="semaine_type" id="semaine_type" class="form-select">
@@ -69,9 +108,28 @@
                         </select>
                     </div>
 
-                    <button type="submit" class="btn btn-success w-100">✅ Ajouter la séance</button>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <strong>Vérification automatique :</strong>
+                        <ul class="mb-0">
+                            <li>✅ Conflits de professeur, salle et section</li>
+                            <li>✅ Indisponibilités du professeur</li>
+                            <li>✅ Capacité de la salle</li>
+                            <li>✅ Affectation créée automatiquement</li>
+                        </ul>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-save"></i> Ajouter la séance
+                    </button>
                 </form>
             </div>
+        </div>
+
+        <div class="mt-3 text-center">
+            <a href="{{ url_for('main.emploi_du_temps') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Voir l'emploi du temps
+            </a>
         </div>
     </div>
 </div>
