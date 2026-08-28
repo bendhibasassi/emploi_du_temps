@@ -1,0 +1,70 @@
+<!-- app/templates/ajouter_professeur.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4><i class="fas fa-user-plus"></i> Ajouter un professeur</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="nom" class="form-label">Nom <span class="text-danger">*</span></label>
+                            <input type="text" name="nom" id="nom" class="form-control" 
+                                   placeholder="Dupont" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="prenom" class="form-label">Prénom</label>
+                            <input type="text" name="prenom" id="prenom" class="form-control" 
+                                   placeholder="Jean">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="grade" class="form-label">Grade</label>
+                        <select name="grade" id="grade" class="form-select">
+                            <option value="">Sélectionner...</option>
+                            <option value="Professeur des universités">Professeur des universités</option>
+                            <option value="Maître de conférences">Maître de conférences</option>
+                            <option value="Chargé de cours">Chargé de cours</option>
+                            <option value="Assistant">Assistant</option>
+                            <option value="ATER">ATER</option>
+                            <option value="Doctorant">Doctorant</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" name="email" id="email" class="form-control" 
+                               placeholder="jean.dupont@univ.fr">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="telephone" class="form-label">Téléphone</label>
+                        <input type="tel" name="telephone" id="telephone" class="form-control" 
+                               placeholder="01 23 45 67 89">
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> 
+                        <strong>Astuce :</strong> Les champs avec <span class="text-danger">*</span> sont obligatoires.
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-save"></i> Ajouter le professeur
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="mt-3 text-center">
+            <a href="{{ url_for('main.professeurs') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Retour à la liste
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

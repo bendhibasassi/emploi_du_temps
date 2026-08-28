@@ -1,0 +1,55 @@
+<!-- app/templates/importer_professeurs.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h4><i class="fas fa-file-excel"></i> Importer des professeurs depuis Excel</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Format du fichier :</strong>
+                    <ul class="mb-0">
+                        <li>Les colonnes doivent s'appeler : <strong>nom, prenom, grade, email, telephone</strong></li>
+                        <li>La colonne <strong>nom</strong> est obligatoire</li>
+                        <li>Les emails en double seront ignorés</li>
+                    </ul>
+                </div>
+
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Sélectionner un fichier Excel</label>
+                        <input type="file" name="file" id="file" class="form-control" 
+                               accept=".xlsx,.xls" required>
+                        <div class="form-text">
+                            Formats supportés : .xlsx, .xls
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-upload"></i> Importer
+                        </button>
+                        <a href="{{ url_for('main.professeurs') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Retour à la liste
+                        </a>
+                    </div>
+                </form>
+
+                <hr>
+
+                <div class="mt-3">
+                    <h5><i class="fas fa-download"></i> Télécharger un modèle</h5>
+                    <p>Si tu n'as pas de fichier, tu peux télécharger un modèle :</p>
+                    <a href="{{ url_for('main.exporter_modele_professeurs') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-file-excel"></i> Télécharger le modèle Excel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,89 @@
+<!-- app/templates/modifier_professeur.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h4><i class="fas fa-edit"></i> Modifier un professeur</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="nom" class="form-label">Nom <span class="text-danger">*</span></label>
+                            <input type="text" name="nom" id="nom" class="form-control" 
+                                   value="{{ professeur.nom }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="prenom" class="form-label">Prénom</label>
+                            <input type="text" name="prenom" id="prenom" class="form-control" 
+                                   value="{{ professeur.prenom or '' }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="grade" class="form-label">Grade</label>
+                        <select name="grade" id="grade" class="form-select">
+                            <option value="">Sélectionner...</option>
+                            <option value="Professeur des universités" 
+                                    {% if professeur.grade == 'Professeur des universités' %}selected{% endif %}>
+                                Professeur des universités
+                            </option>
+                            <option value="Maître de conférences" 
+                                    {% if professeur.grade == 'Maître de conférences' %}selected{% endif %}>
+                                Maître de conférences
+                            </option>
+                            <option value="Chargé de cours" 
+                                    {% if professeur.grade == 'Chargé de cours' %}selected{% endif %}>
+                                Chargé de cours
+                            </option>
+                            <option value="Assistant" 
+                                    {% if professeur.grade == 'Assistant' %}selected{% endif %}>
+                                Assistant
+                            </option>
+                            <option value="ATER" 
+                                    {% if professeur.grade == 'ATER' %}selected{% endif %}>
+                                ATER
+                            </option>
+                            <option value="Doctorant" 
+                                    {% if professeur.grade == 'Doctorant' %}selected{% endif %}>
+                                Doctorant
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" name="email" id="email" class="form-control" 
+                               value="{{ professeur.email or '' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="telephone" class="form-label">Téléphone</label>
+                        <input type="tel" name="telephone" id="telephone" class="form-control" 
+                               value="{{ professeur.telephone or '' }}">
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="actif" id="actif" class="form-check-input" 
+                               {% if professeur.actif %}checked{% endif %}>
+                        <label for="actif" class="form-check-label">Professeur actif</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-warning w-100">
+                        <i class="fas fa-save"></i> Modifier le professeur
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="mt-3 text-center">
+            <a href="{{ url_for('main.professeurs') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Retour à la liste
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

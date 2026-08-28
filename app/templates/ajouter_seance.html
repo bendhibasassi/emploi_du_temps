@@ -1,0 +1,78 @@
+<!-- app/templates/ajouter_seance.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4>➕ Ajouter une séance</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="id_annee" class="form-label">Année universitaire</label>
+                        <select name="id_annee" id="id_annee" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for annee in annees %}
+                                <option value="{{ annee.id_annee }}">{{ annee.libelle }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_affectation" class="form-label">Cours</label>
+                        <select name="id_affectation" id="id_affectation" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for aff in affectations %}
+                                <option value="{{ aff.id }}">{{ aff.prof }} - {{ aff.matiere }} ({{ aff.section }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="jour" class="form-label">Jour</label>
+                        <select name="jour" id="jour" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for key, value in JOURS.items() %}
+                                <option value="{{ key }}">{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_creneau" class="form-label">Créneau horaire</label>
+                        <select name="id_creneau" id="id_creneau" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for creneau in creneaux %}
+                                <option value="{{ creneau.id_creneau }}">{{ creneau.heure_debut }} - {{ creneau.heure_fin }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_salle" class="form-label">Salle</label>
+                        <select name="id_salle" id="id_salle" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for salle in salles %}
+                                <option value="{{ salle.id_salle }}">{{ salle.nom_salle }} ({{ salle.capacite }} places)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="semaine_type" class="form-label">Type de semaine</label>
+                        <select name="semaine_type" id="semaine_type" class="form-select">
+                            <option value="TOUTES">Toutes les semaines</option>
+                            <option value="PAIRE">Semaines paires</option>
+                            <option value="IMPAIRE">Semaines impaires</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">✅ Ajouter la séance</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

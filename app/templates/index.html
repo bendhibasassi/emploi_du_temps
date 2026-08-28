@@ -1,0 +1,80 @@
+<!-- app/templates/index.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="display-4">📚 Gestion de l'Emploi du Temps</h1>
+        <p class="lead">Bienvenue dans le système de gestion des emplois du temps universitaires.</p>
+        <hr>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">👨‍🏫 Professeurs</h5>
+                <p class="display-4">{{ professeurs|length }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">📚 Matières</h5>
+                <p class="display-4">{{ matieres|length }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">🏫 Salles</h5>
+                <p class="display-4">{{ salles|length }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">📅 Séances</h5>
+                <p class="display-4">{{ seances|length }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5>🎯 Actions rapides</h5>
+            </div>
+            <div class="card-body">
+                <a href="{{ url_for('main.ajouter_seance') }}" class="btn btn-success btn-lg w-100 mb-2">➕ Ajouter une séance</a>
+                <a href="{{ url_for('main.emploi_du_temps') }}" class="btn btn-info btn-lg w-100">📊 Voir l'emploi du temps</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5>📊 Statistiques</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Années universitaires</span>
+                        <span class="badge bg-primary">{{ annees|length }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Sections</span>
+                        <span class="badge bg-primary">{{ sections|length }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

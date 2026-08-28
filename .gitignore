@@ -1,0 +1,20 @@
+# Fichiers Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Base de données
+*.db
+*.sqlite
+
+# Fichiers Excel
+*.xlsx
+*.xls
+
+# Dossier uploads
+uploads/
+
+# Environnement
+.env
