@@ -1,0 +1,211 @@
+# verifier_et_ajouter_matieres.py
+"""
+Script pour vérifier et ajouter les matières à partir de la liste extraite du document
+"""
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from models_scripts import Matiere, Niveau
+import os
+
+print("=" * 70)
+print("📚 VÉRIFICATION ET AJOUT DES MATIÈRES")
+print("=" * 70)
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
+engine = create_engine(f"sqlite:///{DB_PATH}")
+Session = sessionmaker(bind=engine)
+session = Session()
+
+# === Récupérer les niveaux ===
+print("\n🔍 Récupération des niveaux...")
+niveaux = {}
+for niveau in session.query(Niveau).all():
+    niveaux[niveau.code_niveau] = niveau
+    print(f"   ✅ {niveau.code_niveau} : {niveau.libelle} (ID: {niveau.id_niveau})")
+
+# === Définition des matières ===
+matieres_data = [
+    # ============ LICENCE ============
+    # L3 Droit privé
+    {'nom': 'القانون المقارن', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'القانون الدولي الخاص', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'طرق الإثبات والتنفيذ', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'الشركات التجارية', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'عقود خاصة', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مواريث', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'جرائم الفساد', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': False},
+    
+    # L3 Droit public
+    {'nom': 'القانون المقارن', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'الوظيفة العامة', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'قانون العلاقات الدولية', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'القرارات والعقود الإدارية', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'المالية العامة', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'القانون الدولي الإنساني', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'قانون البيئة والتنمية المستدامة', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'L3', 'semestre': 'S5', 'avec_cm': True, 'avec_td': False},
+    
+    # ============ MASTER DROIT PÉNAL ============
+    # M1 Droit pénal
+    {'nom': 'قانون الإجراءات الجزائية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'القانون الجنائي الخاص 1', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'جرائم الفساد ومكافحته 1', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'منهجية البحث العلمي 1', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'الإثبات الجنائي', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'الجرائم الأسرية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    
+    # M2 Droit pénal
+    {'nom': 'القانون الجنائي للمخدرات', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'القانون الجنائي للأعمال', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'الجرائم المعلوماتية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'منهجية إعداد مذكرة', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'العدالة الجنائية الدولية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'الفقه الجنائي الإسلامي', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+    
+    # ============ MASTER DROIT INTERNATIONAL ============
+    # M1 Droit international
+    {'nom': 'منهجية البحث العلمي 1', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'تاريخ العلاقات الدولية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'تنازع الاختصاص القضائي الدولي', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'القانون الدولي للبيئة', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'المعاهدات الدولية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'القانون الدولي الإنساني ومسؤولية الحماية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    
+    # M2 Droit international
+    {'nom': 'القانون الأوروبي', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'منهجية إعداد مذكرة', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'المسؤولية الدولية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'التحكيم الدولي', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'قانون البحار', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'النظام القانوني للاستثمار الدولي', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+    
+    # ============ MASTER GOUVERNANCE ============
+    # M1 Gouvernance
+    {'nom': 'اتفاقيات مكافحة الفساد', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'قانون مكافحة الفساد', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'الحكم الراشد', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'قانون المؤسسة الناشئة', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'الإجرام المالي والاقتصادي', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'منهجية البحث العلمي', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'الرقابة على دستورية القوانين', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'التدابير الوقائية من الفساد', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'حوكمة الصفقات العمومية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    
+    # M2 Gouvernance
+    {'nom': 'جرائم تبييض الأموال', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'الإدارة الإلكترونية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'المكافحة الإجرائية للفساد', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'المحاكمة العادلة', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'نزاهة وشفافية الانتخابات', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'النظام القانوني الدولي لاسترداد الأموال', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'حقوق المؤلف والسرقة العلمية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'منهجية إعداد مذكرة ماستر', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'الأمن السيبراني', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+    
+    # ============ MASTER DROIT DES AFFAIRES ============
+    # M1 Droit des affaires
+    {'nom': 'التحكيم التجاري', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'قانون المنافسة', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'منازعات تجارية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'عقود الأعمال', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'تحرير الرسائل والعرائض', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'منهجية البحث العلمي 2', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'مسؤولية الناقل', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    
+    # M2 Droit des affaires
+    {'nom': 'مسؤولية مسيري الشركات', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'قانون الممارسات التجارية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'التجارة الإلكترونية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'قانون الملكية الصناعية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'منهجية إعداد البحوث', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'قانون الجمارك', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+    
+    # ============ MASTER DROIT IMMOBILIER ============
+    # M1 Droit immobilier
+    {'nom': 'قانون الأملاك الوطنية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'قانون العمران والمدينة', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'طرق اكتساب الملكية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'التوثيق والشهر العقاريين', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'قانون الساحل', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'منهجية البحث العلمي 1', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    
+    # M2 Droit immobilier
+    {'nom': 'حقوق الامتياز', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'حماية الملكية العقارية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'المنازعات العقارية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'منهجية إعداد مذكرة', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'حماية المستهلك العقاري', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'العقار البيئي', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+    
+    # ============ MASTER DROIT DES CONTRATS ============
+    # M1 Droit des contrats
+    {'nom': 'التأمينات الشخصية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'منهجية البحث العلمي 1', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'نظام التعويض', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'المسؤولية العقدية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'الشكلية في العقود', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'التحكيم التجاري', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M1', 'semestre': 'S1', 'avec_cm': True, 'avec_td': False},
+    
+    # M2 Droit des contrats
+    {'nom': 'التأمينات العينية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'قانون مكافحة الفساد', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'النظام القانوني للشركات', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'المسؤولية الطبية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'عقود التبرعات', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': True},
+    {'nom': 'منهجية إعداد مذكرة', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+    {'nom': 'مصطلحات قانونية', 'niveau_code': 'M2', 'semestre': 'S3', 'avec_cm': True, 'avec_td': False},
+]
+
+# === Ajouter les matières ===
+print("\n📥 Ajout des matières...")
+compteur = 0
+existantes = 0
+
+for data in matieres_data:
+    niveau = niveaux.get(data['niveau_code'])
+    if not niveau:
+        print(f"   ⚠️ Niveau {data['niveau_code']} non trouvé pour {data['nom']}")
+        continue
+    
+    # Vérifier si la matière existe déjà
+    existing = session.query(Matiere).filter_by(
+        nom_matiere=data['nom'],
+        id_niveau=niveau.id_niveau
+    ).first()
+    
+    if existing:
+        print(f"   ℹ️ Déjà existante : {data['nom']} ({data['niveau_code']})")
+        existantes += 1
+        continue
+    
+    # Ajouter la matière avec un code généré
+    code = f"{data['niveau_code']}-{data['semestre']}-{compteur+1:03d}"
+    matiere = Matiere(
+        code_matiere=code,
+        nom_matiere=data['nom'],
+        id_niveau=niveau.id_niveau,
+        semestre=data['semestre'],
+        avec_cm=data['avec_cm'],
+        avec_td=data['avec_td'],
+        actif=True
+    )
+    session.add(matiere)
+    compteur += 1
+    print(f"   ✅ Ajoutée : {data['nom']} ({data['niveau_code']} - {data['semestre']})")
+
+session.commit()
+print(f"\n📊 Résumé : {compteur} matières ajoutées, {existantes} déjà existantes")
+print("=" * 70)
+session.close()

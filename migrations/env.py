@@ -1,9 +1,17 @@
 from logging.config import fileConfig
+from pathlib import Path
+import sys
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from app import db
+from app import models  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -18,7 +26,10 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
-target_metadata = None
+target_metadata = db.metadata
+
+database_path = (PROJECT_ROOT / "emploi_du_temps.db").as_posix()
+config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

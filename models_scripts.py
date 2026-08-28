@@ -4,6 +4,7 @@ from sqlalchemy import (
     Date, Time, ForeignKey, CheckConstraint, UniqueConstraint
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from datetime import date, time
 
 Base = declarative_base()
 
@@ -51,6 +52,10 @@ class Professeur(Base):
     email = Column(String(254), unique=True)
     telephone = Column(String(30))
     actif = Column(Boolean, default=True)
+    statut = Column(String(20), nullable=False, default='Permanent')
+    peut_cm = Column(Boolean, default=True)
+    peut_td = Column(Boolean, default=True)
+    peut_tp = Column(Boolean, default=False)
 
 class Matiere(Base):
     __tablename__ = "tbl_matieres"
@@ -58,7 +63,19 @@ class Matiere(Base):
     id_matiere = Column(Integer, primary_key=True)
     code_matiere = Column(String(30), unique=True, nullable=False)
     nom_matiere = Column(String(200), nullable=False)
+
+    # === NOUVEAUX CHAMPS ===
+    id_niveau = Column(Integer, ForeignKey('tbl_niveaux.id_niveau'), nullable=True)
+    semestre = Column(String(10), nullable=True)
+    avec_cm = Column(Boolean, default=True)
+    avec_td = Column(Boolean, default=False)
     actif = Column(Boolean, default=True)
+
+    # Relation
+    niveau = relationship('Niveau', backref='matieres')
+
+    def __repr__(self):
+        return f"<Matiere {self.code_matiere} - {self.nom_matiere}>"
 
 class Salle(Base):
     __tablename__ = "tbl_salles"

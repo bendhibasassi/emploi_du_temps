@@ -34,6 +34,9 @@ class Section(db.Model):
     libelle = db.Column(db.String(150), nullable=False)
     effectif = db.Column(db.Integer, default=0)
     actif = db.Column(db.Boolean, default=True)
+
+    niveau = db.relationship('Niveau', backref='sections', lazy=True)
+    groupes = db.relationship('Groupe', back_populates='section', lazy=True)
     
     __table_args__ = (
         db.UniqueConstraint('id_niveau', 'code_section', name='uq_section_niveau_code'),
@@ -41,6 +44,28 @@ class Section(db.Model):
     
     def __repr__(self):
         return f"<Section {self.code_section}>"
+
+
+class Groupe(db.Model):
+    __tablename__ = "tbl_groupes"
+
+    id_groupe = db.Column(db.Integer, primary_key=True)
+    id_section = db.Column(db.Integer, db.ForeignKey('tbl_sections.id_section'), nullable=False)
+    code_groupe = db.Column(db.String(20), nullable=False)
+    nom_groupe = db.Column(db.String(100), nullable=False)
+    effectif = db.Column(db.Integer, nullable=True)
+    actif = db.Column(db.Boolean, default=True)
+
+    # Relation avec Section
+    section = db.relationship('Section', back_populates='groupes', lazy=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('id_section', 'code_groupe', name='uq_section_code_groupe'),
+    )
+
+    def __repr__(self):
+        return f"<Groupe {self.code_groupe} - {self.nom_groupe}>"
+
 
 class Professeur(db.Model):
     __tablename__ = "tbl_professeurs"
@@ -52,9 +77,18 @@ class Professeur(db.Model):
     email = db.Column(db.String(254), unique=True)
     telephone = db.Column(db.String(30))
     actif = db.Column(db.Boolean, default=True)
-    
+
+    # === NOUVEAUX CHAMPS ===
+    statut = db.Column(db.String(20), nullable=False, default='Permanent')
+    peut_cm = db.Column(db.Boolean, default=True)
+    peut_td = db.Column(db.Boolean, default=True)
+    peut_tp = db.Column(db.Boolean, default=False)
+
+    # Relation
+    affectations = db.relationship('Affectation', back_populates='professeur', lazy=True)
+
     def __repr__(self):
-        return f"<Prof {self.prenom} {self.nom}>"
+        return f"<Professeur {self.nom} ({self.statut})>"
 
 class Matiere(db.Model):
     __tablename__ = "tbl_matieres"
@@ -62,10 +96,19 @@ class Matiere(db.Model):
     id_matiere = db.Column(db.Integer, primary_key=True)
     code_matiere = db.Column(db.String(30), unique=True, nullable=False)
     nom_matiere = db.Column(db.String(200), nullable=False)
+
+    # === NOUVEAUX CHAMPS ===
+    id_niveau = db.Column(db.Integer, db.ForeignKey('tbl_niveaux.id_niveau'), nullable=True)
+    semestre = db.Column(db.String(10), nullable=True)
+    avec_cm = db.Column(db.Boolean, default=True)
+    avec_td = db.Column(db.Boolean, default=False)
     actif = db.Column(db.Boolean, default=True)
+
+    # Relation
+    niveau = db.relationship('Niveau', backref='matieres', lazy=True)
     
     def __repr__(self):
-        return f"<Matiere {self.nom_matiere}>"
+        return f"<Matiere {self.code_matiere} - {self.nom_matiere}>"
 
 class Salle(db.Model):
     __tablename__ = "tbl_salles"
@@ -101,6 +144,7 @@ class Affectation(db.Model):
     id_professeur = db.Column(db.Integer, db.ForeignKey('tbl_professeurs.id_professeur'), nullable=False)
     id_matiere = db.Column(db.Integer, db.ForeignKey('tbl_matieres.id_matiere'), nullable=False)
     id_section = db.Column(db.Integer, db.ForeignKey('tbl_sections.id_section'), nullable=False)
+    id_groupe = db.Column(db.Integer, db.ForeignKey('tbl_groupes.id_groupe'), nullable=True)
     semestre = db.Column(db.Integer, nullable=False)
     type_enseignement = db.Column(db.String(10), nullable=False)
     nb_seances_semaine = db.Column(db.Integer, default=1)
@@ -110,7 +154,8 @@ class Affectation(db.Model):
     actif = db.Column(db.Boolean, default=True)
     
     # Relations
-    professeur = db.relationship('Professeur', backref='affectations', lazy=True)
+    groupe = db.relationship('Groupe', backref='affectations', lazy=True)
+    professeur = db.relationship('Professeur', back_populates='affectations', lazy=True)
     matiere = db.relationship('Matiere', backref='affectations', lazy=True)
     section = db.relationship('Section', backref='affectations', lazy=True)
     annee = db.relationship('AnneeUniversitaire', backref='affectations', lazy=True)

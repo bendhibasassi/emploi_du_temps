@@ -1,0 +1,65 @@
+<!-- app/templates/modifier_groupe.html -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h4><i class="fas fa-edit"></i> Modifier le groupe</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="id_section" class="form-label">Section <span class="text-danger">*</span></label>
+                        <select name="id_section" id="id_section" class="form-select" required>
+                            <option value="">Sélectionner...</option>
+                            {% for section in sections %}
+                                <option value="{{ section.id_section }}"
+                                        {% if section.id_section == groupe.id_section %}selected{% endif %}>
+                                    {{ section.niveau.libelle }} - {{ section.libelle }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="code_groupe" class="form-label">Code <span class="text-danger">*</span></label>
+                            <input type="text" name="code_groupe" id="code_groupe" class="form-control"
+                                   value="{{ groupe.code_groupe }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="nom_groupe" class="form-label">Nom <span class="text-danger">*</span></label>
+                            <input type="text" name="nom_groupe" id="nom_groupe" class="form-control"
+                                   value="{{ groupe.nom_groupe }}" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="effectif" class="form-label">Effectif</label>
+                        <input type="number" name="effectif" id="effectif" class="form-control"
+                               value="{{ groupe.effectif or '' }}" min="0">
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" name="actif" id="actif" class="form-check-input"
+                               {% if groupe.actif %}checked{% endif %}>
+                        <label for="actif" class="form-check-label">Groupe actif</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-warning w-100">
+                        <i class="fas fa-save"></i> Modifier le groupe
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="mt-3 text-center">
+            <a href="{{ url_for('main.groupes') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Retour à la liste
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

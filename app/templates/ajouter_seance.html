@@ -57,12 +57,29 @@
                     <!-- === TYPE D'ENSEIGNEMENT === -->
                     <div class="mb-3">
                         <label for="type_enseignement" class="form-label">Type d'enseignement</label>
-                        <select name="type_enseignement" id="type_enseignement" class="form-select">
+                        <select name="type_enseignement" id="type_enseignement" class="form-select" required>
                             <option value="CM">📖 Cours Magistral (CM)</option>
                             <option value="TD">📝 Travaux Dirigés (TD)</option>
                             <option value="TP">🔬 Travaux Pratiques (TP)</option>
                             <option value="AUTRE">📌 Autre</option>
                         </select>
+                    </div>
+
+                    <!-- === GROUPE (visible uniquement pour TD/TP) === -->
+                    <div class="mb-3" id="groupe-container" style="display:none;">
+                        <label for="id_groupe" class="form-label">Groupe</label>
+                        <select name="id_groupe" id="id_groupe" class="form-select">
+                            <option value="">Sélectionner un groupe...</option>
+                            {% for groupe in groupes %}
+                                <option value="{{ groupe.id_groupe }}" data-section="{{ groupe.id_section }}">
+                                    {{ groupe.code_groupe }} - {{ groupe.nom_groupe }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i>
+                            Les groupes sont filtrés automatiquement selon la section choisie.
+                        </div>
                     </div>
 
                     <!-- === JOUR === -->
@@ -115,6 +132,7 @@
                             <li>✅ Conflits de professeur, salle et section</li>
                             <li>✅ Indisponibilités du professeur</li>
                             <li>✅ Capacité de la salle</li>
+                            <li>✅ Groupe obligatoire pour les TD/TP</li>
                             <li>✅ Affectation créée automatiquement</li>
                         </ul>
                     </div>
@@ -133,4 +151,63 @@
         </div>
     </div>
 </div>
+
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+    // Éléments
+    const typeSelect = document.getElementById('type_enseignement');
+    const sectionSelect = document.getElementById('id_section');
+    const groupeContainer = document.getElementById('groupe-container');
+    const groupeSelect = document.getElementById('id_groupe');
+
+    // Filtrer les groupes par section
+    function filtrerGroupes() {
+        const sectionId = sectionSelect.value;
+        const options = groupeSelect.querySelectorAll('option');
+
+        options.forEach(option => {
+            if (option.value === '') {
+                option.style.display = ''; // Toujours afficher l'option "Sélectionner"
+                return;
+            }
+            const optionSection = option.getAttribute('data-section');
+            if (optionSection === sectionId) {
+                option.style.display = '';
+            } else {
+                option.style.display = 'none';
+            }
+        });
+
+        // Réinitialiser la sélection si le groupe choisi n'est plus visible
+        if (groupeSelect.value) {
+            const selectedOption = groupeSelect.options[groupeSelect.selectedIndex];
+            if (selectedOption && selectedOption.style.display === 'none') {
+                groupeSelect.value = '';
+            }
+        }
+    }
+
+    // Afficher/cacher le champ Groupe selon le type
+    function toggleGroupe() {
+        const type = typeSelect.value;
+        if (type === 'TD' || type === 'TP') {
+            groupeContainer.style.display = 'block';
+            filtrerGroupes();
+        } else {
+            groupeContainer.style.display = 'none';
+            groupeSelect.value = '';
+        }
+    }
+
+    // Écouter les changements
+    typeSelect.addEventListener('change', toggleGroupe);
+    sectionSelect.addEventListener('change', function() {
+        if (typeSelect.value === 'TD' || typeSelect.value === 'TP') {
+            filtrerGroupes();
+        }
+    });
+
+    // Initialisation au chargement
+    toggleGroupe();
+</script>
 {% endblock %}

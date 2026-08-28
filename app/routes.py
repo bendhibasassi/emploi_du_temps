@@ -6,7 +6,7 @@ import pandas as pd
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
 from app import db
 from app.models import (
-    Professeur, Matiere, Section, Salle, Creneau, 
+    Professeur, Matiere, Niveau, Section, Groupe, Salle, Creneau,
     Affectation, Seance, AnneeUniversitaire, Indisponibilite, Historique
 )
 from datetime import datetime
@@ -104,11 +104,12 @@ def ajouter_seance():
         id_professeur = request.form.get('id_professeur', type=int)
         id_matiere = request.form.get('id_matiere', type=int)
         id_section = request.form.get('id_section', type=int)
+        type_enseignement = request.form.get('type_enseignement', 'CM')
+        id_groupe = request.form.get('id_groupe', type=int)
         jour = request.form.get('jour', type=int)
         id_creneau = request.form.get('id_creneau', type=int)
         id_salle = request.form.get('id_salle', type=int)
         semaine_type = request.form.get('semaine_type', 'TOUTES')
-        type_enseignement = request.form.get('type_enseignement', 'CM')
 
         # === VÉRIFICATIONS ===
         conflits = []
@@ -118,12 +119,22 @@ def ajouter_seance():
             flash('❌ Tous les champs sont obligatoires !', 'danger')
             return redirect(url_for('main.ajouter_seance'))
 
+        # Vérifier que le groupe est obligatoire pour les TD/TP
+        if type_enseignement in ('TD', 'TP') and not id_groupe:
+            flash('❌ Un groupe est obligatoire pour les TD/TP !', 'danger')
+            return redirect(url_for('main.ajouter_seance'))
+
+        # Si CM, id_groupe doit être NULL
+        if type_enseignement == 'CM':
+            id_groupe = None
+
         # Vérifier si une affectation existe déjà, sinon la créer
         affectation = Affectation.query.filter_by(
             id_annee=id_annee,
             id_professeur=id_professeur,
             id_matiere=id_matiere,
-            id_section=id_section
+            id_section=id_section,
+            id_groupe=id_groupe
         ).first()
 
         if affectation is None:
@@ -132,6 +143,7 @@ def ajouter_seance():
                 id_professeur=id_professeur,
                 id_matiere=id_matiere,
                 id_section=id_section,
+                id_groupe=id_groupe,
                 semestre=1,
                 type_enseignement=type_enseignement,
                 nb_seances_semaine=1,
@@ -237,6 +249,7 @@ def ajouter_seance():
     sections = Section.query.filter_by(actif=True).all()
     creneaux = Creneau.query.order_by(Creneau.ordre).all()
     salles = Salle.query.filter_by(actif=True).all()
+    groupes = Groupe.query.filter_by(actif=True).all()
 
     return render_template('ajouter_seance.html',
         annees=annees,
@@ -245,6 +258,7 @@ def ajouter_seance():
         sections=sections,
         creneaux=creneaux,
         salles=salles,
+        groupes=groupes,
         JOURS=JOURS
     )
 
@@ -648,6 +662,157 @@ def supprimer_salle(id_salle):
         flash(f'❌ Erreur : {e}', 'danger')
 
     return redirect(url_for('main.salles'))
+
+
+# ============ GROUPES ============
+
+@main.route('/groupes')
+def groupes():
+    """Liste des groupes"""
+    # Récupérer tous les groupes avec leurs sections et niveaux
+    groupes_list = db.session.query(
+        Groupe,
+        Section,
+        Niveau
+    ).join(
+        Section, Groupe.id_section == Section.id_section
+    ).join(
+        Niveau, Section.id_niveau == Niveau.id_niveau
+    ).filter(
+        Groupe.actif == True
+    ).all()
+
+    return render_template('groupes.html', groupes=groupes_list)
+
+
+@main.route('/ajouter_groupe', methods=['GET', 'POST'])
+def ajouter_groupe():
+    """Ajouter un groupe"""
+    if request.method == 'POST':
+        id_section = request.form.get('id_section', type=int)
+        code_groupe = request.form.get('code_groupe', '').strip()
+        nom_groupe = request.form.get('nom_groupe', '').strip()
+        effectif = request.form.get('effectif', type=int)
+
+        # Vérifications
+        if not id_section or not code_groupe or not nom_groupe:
+            flash('❌ La section, le code et le nom sont obligatoires !', 'danger')
+            return redirect(url_for('main.ajouter_groupe'))
+
+        # Vérifier si le groupe existe déjà dans cette section
+        existing = Groupe.query.filter_by(
+            id_section=id_section,
+            code_groupe=code_groupe
+        ).first()
+
+        if existing:
+            flash(f'❌ Le groupe {code_groupe} existe déjà dans cette section !', 'danger')
+            return redirect(url_for('main.ajouter_groupe'))
+
+        # Créer le groupe
+        groupe = Groupe(
+            id_section=id_section,
+            code_groupe=code_groupe,
+            nom_groupe=nom_groupe,
+            effectif=effectif if effectif else None,
+            actif=True
+        )
+
+        try:
+            db.session.add(groupe)
+            db.session.commit()
+
+            # Historique
+            ajouter_historique(
+                utilisateur='Administrateur',
+                action='AJOUT',
+                type_objet='GROUPE',
+                id_objet=groupe.id_groupe,
+                nouvelle_valeur=f"Section: {id_section}, Code: {code_groupe}, Nom: {nom_groupe}",
+                ip=request.remote_addr
+            )
+
+            flash(f'✅ Groupe {code_groupe} ajouté avec succès !', 'success')
+            return redirect(url_for('main.groupes'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'❌ Erreur : {e}', 'danger')
+
+    # GET : Afficher le formulaire
+    sections = Section.query.filter_by(actif=True).all()
+    return render_template('ajouter_groupe.html', sections=sections)
+
+
+@main.route('/groupe/<int:id_groupe>/modifier', methods=['GET', 'POST'])
+def modifier_groupe(id_groupe):
+    """Modifier un groupe"""
+    groupe = Groupe.query.get_or_404(id_groupe)
+
+    if request.method == 'POST':
+        ancienne_valeur = f"Code: {groupe.code_groupe}, Nom: {groupe.nom_groupe}, Effectif: {groupe.effectif}"
+
+        groupe.id_section = request.form.get('id_section', type=int) or groupe.id_section
+        groupe.code_groupe = request.form.get('code_groupe', groupe.code_groupe).strip()
+        groupe.nom_groupe = request.form.get('nom_groupe', groupe.nom_groupe).strip()
+        groupe.effectif = request.form.get('effectif', type=int) or None
+        groupe.actif = request.form.get('actif') == 'on'
+
+        try:
+            db.session.commit()
+
+            nouvelle_valeur = f"Code: {groupe.code_groupe}, Nom: {groupe.nom_groupe}, Effectif: {groupe.effectif}"
+
+            ajouter_historique(
+                utilisateur='Administrateur',
+                action='MODIFICATION',
+                type_objet='GROUPE',
+                id_objet=groupe.id_groupe,
+                ancienne_valeur=ancienne_valeur,
+                nouvelle_valeur=nouvelle_valeur,
+                ip=request.remote_addr
+            )
+
+            flash(f'✅ Groupe {groupe.code_groupe} modifié avec succès !', 'success')
+            return redirect(url_for('main.groupes'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'❌ Erreur : {e}', 'danger')
+
+    sections = Section.query.filter_by(actif=True).all()
+    return render_template('modifier_groupe.html', groupe=groupe, sections=sections)
+
+
+@main.route('/groupe/<int:id_groupe>/supprimer', methods=['POST'])
+def supprimer_groupe(id_groupe):
+    """Supprimer un groupe"""
+    groupe = Groupe.query.get_or_404(id_groupe)
+
+    # Vérifier si le groupe est utilisé dans des affectations
+    affectations = Affectation.query.filter_by(id_groupe=id_groupe).first()
+    if affectations:
+        flash(f'❌ Le groupe {groupe.code_groupe} est utilisé dans des affectations !', 'danger')
+        return redirect(url_for('main.groupes'))
+
+    try:
+        ancienne_valeur = f"Code: {groupe.code_groupe}, Nom: {groupe.nom_groupe}, Section: {groupe.id_section}"
+
+        ajouter_historique(
+            utilisateur='Administrateur',
+            action='SUPPRESSION',
+            type_objet='GROUPE',
+            id_objet=id_groupe,
+            ancienne_valeur=ancienne_valeur,
+            ip=request.remote_addr
+        )
+
+        db.session.delete(groupe)
+        db.session.commit()
+        flash(f'✅ Groupe {groupe.code_groupe} supprimé avec succès !', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'❌ Erreur : {e}', 'danger')
+
+    return redirect(url_for('main.groupes'))
 
 
 # ============ MATIERES ============
