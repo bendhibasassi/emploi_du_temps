@@ -1,11 +1,11 @@
 # ajouter_historique.py
 from sqlalchemy import create_engine, text, inspect
+from config import DATABASE_URI
 import os
 
 print("📋 Création de la table tbl_historique...")
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
-engine = create_engine(f"sqlite:///{DB_PATH}")
+engine = create_engine(DATABASE_URI)
 
 inspector = inspect(engine)
 

@@ -1,16 +1,17 @@
 # ajouter_seance.py - Version avec vérification des conflits
-from models_scripts import (
+from app.models import (
     Seance, Affectation, Professeur, Matiere, 
     Section, Salle, Creneau, AnneeUniversitaire
 )
 from sqlalchemy import create_engine, and_, or_
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
 from datetime import time, datetime
 
 print("📅 Ajout d'une séance avec vérification des conflits...")
 
 # Connexion à la base
-engine = create_engine("sqlite:///emploi_du_temps.db")
+engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 
 def verifier_conflits(session, id_annee, id_affectation, jour, id_creneau, id_salle):

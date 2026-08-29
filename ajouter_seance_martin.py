@@ -1,14 +1,15 @@
 # ajouter_seance_martin.py
-from models_scripts import (
+from app.models import (
     Seance, Affectation, Professeur, Matiere, 
     Section, Salle, Creneau
 )
 from sqlalchemy import create_engine, and_
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
 
 print("📅 Ajout d'une séance pour Sophie Martin...")
 
-engine = create_engine("sqlite:///emploi_du_temps.db")
+engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 
 def verifier_conflits(session, id_annee, id_affectation, jour, id_creneau, id_salle):
@@ -145,4 +146,3 @@ with Session() as session:
     except Exception as e:
         session.rollback()
         print(f"❌ Erreur inattendue : {e}")
-        

@@ -5,9 +5,10 @@ import sys
 
 import pandas as pd
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
 
-from models_scripts import (
+from app.models import (
     Affectation,
     AnneeUniversitaire,
     Groupe,
@@ -57,8 +58,7 @@ def main():
     if not os.path.isabs(file_path):
         file_path = os.path.join(os.path.dirname(__file__), file_path)
 
-    db_path = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
-    engine = create_engine(f"sqlite:///{db_path}")
+    engine = create_engine(DATABASE_URI)
     session = sessionmaker(bind=engine)()
 
     try:

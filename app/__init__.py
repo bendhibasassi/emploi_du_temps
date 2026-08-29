@@ -1,11 +1,12 @@
 # app/__init__.py
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-import os
 import sqlite3
 
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+
+from config import DATABASE_URI
 
 # Initialisation de SQLAlchemy
 db = SQLAlchemy()
@@ -26,10 +27,7 @@ def create_app():
     # Configuration
     app.config['SECRET_KEY'] = 'dev-key-12345'
     
-    # === CHEMIN ABSOLU VERS LA BASE ===
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    db_path = os.path.join(BASE_DIR, "emploi_du_temps.db")
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URI
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
     # Initialisation de la base
@@ -44,6 +42,6 @@ def create_app():
         db.create_all()
         # Vérification
         from app.models import Professeur
-        print(f"📊 Professeurs dans la base Flask : {Professeur.query.count()}")
+        print(f"Professeurs dans la base Flask : {Professeur.query.count()}")
     
     return app

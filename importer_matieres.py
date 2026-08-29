@@ -4,16 +4,16 @@ Script d'import des matières
 Licence Droit public 2025/2026 + Master Droit administratif 2026/2027
 """
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
-from models_scripts import Matiere, Niveau
+from app.models import Matiere, Niveau
 import os
 
 print("=" * 60)
 print("📚 IMPORT DES MATIÈRES")
 print("=" * 60)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
-engine = create_engine(f"sqlite:///{DB_PATH}")
+engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 session = Session()
 

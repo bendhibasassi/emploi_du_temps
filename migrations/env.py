@@ -12,6 +12,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from app import db
 from app import models  # noqa: F401
+from config import DATABASE_URI
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -28,8 +29,9 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 target_metadata = db.metadata
 
-database_path = (PROJECT_ROOT / "emploi_du_temps.db").as_posix()
-config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
+configured_url = config.get_main_option("sqlalchemy.url")
+if not configured_url or configured_url.startswith("driver://"):
+    config.set_main_option("sqlalchemy.url", DATABASE_URI)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

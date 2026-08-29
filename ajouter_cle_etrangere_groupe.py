@@ -1,15 +1,15 @@
 # ajouter_cle_etrangere_groupe.py
 
 import sqlite3
+from config import DATABASE_PATH
 import os
 
 
-DB_PATH = "emploi_du_temps.db"
 
 print("🔧 Ajout de la clé étrangère id_groupe → tbl_groupes...")
 
 # Connexion à la base
-conn = sqlite3.connect(DB_PATH)
+conn = sqlite3.connect(DATABASE_PATH)
 cursor = conn.cursor()
 
 # === DÉSACTIVER TEMPORAIREMENT LES CLÉS ÉTRANGÈRES ===
@@ -98,7 +98,7 @@ finally:
 
 # === VÉRIFICATION FINALE ===
 print("\n📋 Vérification de la nouvelle structure...")
-conn = sqlite3.connect(DB_PATH)
+conn = sqlite3.connect(DATABASE_PATH)
 cursor = conn.cursor()
 
 cursor.execute("PRAGMA foreign_key_list(tbl_affectations)")

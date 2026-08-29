@@ -8,6 +8,9 @@ venv/
 # Base de données
 *.db
 *.sqlite
+*.sqlite3
+backups/
+archive/
 
 # Fichiers Excel
 *.xlsx

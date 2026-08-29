@@ -4,16 +4,16 @@ Script pour créer automatiquement les groupes pour chaque section
 en fonction du nombre de groupes souhaité
 """
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
-from models_scripts import Section, Groupe
+from app.models import Section, Groupe
 import os
 
 print("=" * 70)
 print("👥 CRÉATION DES GROUPES PAR SECTION")
 print("=" * 70)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
-engine = create_engine(f"sqlite:///{DB_PATH}")
+engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 session = Session()
 

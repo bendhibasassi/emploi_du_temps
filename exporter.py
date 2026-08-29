@@ -1,10 +1,11 @@
 # exporter.py
 import pandas as pd
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 
 print("📊 Affichage de l'emploi du temps...")
 
-engine = create_engine("sqlite:///emploi_du_temps.db")
+engine = create_engine(DATABASE_URI)
 
 # Requête SQL pour tout afficher
 query = """

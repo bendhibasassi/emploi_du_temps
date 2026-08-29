@@ -1,16 +1,16 @@
 # verifier_libelles.py
 
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
-from models_scripts import Niveau, Section, Matiere, Professeur
+from app.models import Niveau, Section, Matiere, Professeur
 import os
 
 print("=" * 70)
 print("🔍 VÉRIFICATION DES LIBELLÉS EXACTS")
 print("=" * 70)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
-engine = create_engine(f"sqlite:///{DB_PATH}")
+engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 session = Session()
 

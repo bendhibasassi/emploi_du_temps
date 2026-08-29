@@ -2,14 +2,14 @@
 import os
 
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
 
-from models_scripts import Professeur, Matiere, Section, Affectation, AnneeUniversitaire
+from app.models import Professeur, Matiere, Section, Affectation, AnneeUniversitaire
 
 print("📋 Création des affectations pour tous les professeurs...")
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
-engine = create_engine(f"sqlite:///{DB_PATH}")
+engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 
 with Session() as session:

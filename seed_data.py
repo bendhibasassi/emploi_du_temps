@@ -2,20 +2,21 @@
 import os
 from datetime import date, time
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
-from models_scripts import (
-    Base, AnneeUniversitaire, Niveau, Section, Professeur, 
+from app import db
+from app.models import (
+    AnneeUniversitaire, Niveau, Section, Professeur,
     Matiere, Salle, Creneau, Affectation, Indisponibilite
 )
 
 print("🌱 Ajout des données de test...")
 
 # Chemin absolu pour éviter les surprises
-DB_PATH = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
-engine = create_engine(f"sqlite:///{DB_PATH}")
+engine = create_engine(DATABASE_URI)
 
 # Crée les tables si elles n'existent pas
-Base.metadata.create_all(engine)
+db.metadata.create_all(engine)
 
 Session = sessionmaker(bind=engine)
 

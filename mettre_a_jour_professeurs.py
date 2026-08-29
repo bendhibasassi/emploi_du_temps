@@ -1,14 +1,14 @@
 # mettre_a_jour_professeurs.py
 
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
-from models_scripts import Professeur
+from app.models import Professeur
 import os
 
 print("🔄 Mise à jour des professeurs avec leurs statuts...")
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
-engine = create_engine(f"sqlite:///{DB_PATH}")
+engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 session = Session()
 

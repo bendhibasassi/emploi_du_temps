@@ -3,16 +3,16 @@
 Correction des permissions pour les professeurs permanents et vacataires
 """
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
-from models_scripts import Professeur
+from app.models import Professeur
 import os
 
 print("=" * 60)
 print("🔧 CORRECTION DES PERMISSIONS DES PROFESSEURS")
 print("=" * 60)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
-engine = create_engine(f"sqlite:///{DB_PATH}")
+engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 session = Session()
 

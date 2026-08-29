@@ -1,9 +1,10 @@
 # test_db.py
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
-from models_scripts import Professeur, Matiere, Salle, Seance, Affectation, Section, Creneau, AnneeUniversitaire
+from app.models import Professeur, Matiere, Salle, Seance, Affectation, Section, Creneau, AnneeUniversitaire
 
-engine = create_engine("sqlite:///emploi_du_temps.db")
+engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 session = Session()
 

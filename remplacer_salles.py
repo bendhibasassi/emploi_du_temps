@@ -4,16 +4,16 @@ Script pour remplacer la liste des salles par la liste officielle
 (version avec conservation de l'historique)
 """
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
-from models_scripts import Salle
+from app.models import Salle
 import os
 
 print("=" * 60)
 print("🏫 REMPLACEMENT DE LA LISTE DES SALLES")
 print("=" * 60)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
-engine = create_engine(f"sqlite:///{DB_PATH}")
+engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 session = Session()
 

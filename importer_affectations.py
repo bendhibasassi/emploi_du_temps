@@ -4,8 +4,9 @@ Script pour importer les affectations depuis un fichier Excel
 """
 import pandas as pd
 from sqlalchemy import create_engine
+from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
-from models_scripts import Professeur, Matiere, Section, Affectation, AnneeUniversitaire
+from app.models import Professeur, Matiere, Section, Affectation, AnneeUniversitaire
 import os
 
 print("=" * 70)
@@ -13,8 +14,7 @@ print("📚 IMPORT DES AFFECTATIONS")
 print("=" * 70)
 
 # === 1. Connexion à la base ===
-DB_PATH = os.path.join(os.path.dirname(__file__), "emploi_du_temps.db")
-engine = create_engine(f"sqlite:///{DB_PATH}")
+engine = create_engine(DATABASE_URI)
 Session = sessionmaker(bind=engine)
 session = Session()
 
