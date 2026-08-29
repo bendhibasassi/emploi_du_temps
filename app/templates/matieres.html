@@ -27,12 +27,25 @@
                     <h5 class="card-title">
                         <i class="fas fa-book text-primary"></i>
                         {{ matiere.nom_matiere }}
-                        {% if not matiere.actif %}
-                            <span class="badge bg-danger">Inactive</span>
+                        {% if matiere.actif %}
+                            <span class="badge bg-success">Actif</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactif</span>
                         {% endif %}
                     </h5>
                     <p class="card-text">
                         <strong>Code :</strong> {{ matiere.code_matiere }}<br>
+                        <strong>Niveau :</strong>
+                        {% if matiere.niveau %}{{ matiere.niveau.code_niveau }} — {{ matiere.niveau.libelle }}{% else %}-{% endif %}<br>
+                        <strong>Semestre :</strong> {{ matiere.semestre or '-' }}<br>
+                        <strong>CM :</strong>
+                        <span class="badge {% if matiere.avec_cm %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ 'Oui' if matiere.avec_cm else 'Non' }}
+                        </span>
+                        <strong>TD :</strong>
+                        <span class="badge {% if matiere.avec_td %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ 'Oui' if matiere.avec_td else 'Non' }}
+                        </span><br>
                         <strong>ID :</strong> {{ matiere.id_matiere }}
                     </p>
                     <div class="d-flex gap-2">

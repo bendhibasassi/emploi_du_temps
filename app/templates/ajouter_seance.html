@@ -10,75 +10,24 @@
             </div>
             <div class="card-body">
                 <form method="POST">
-                    <!-- === ANNÉE === -->
+                    <!-- === AFFECTATION === -->
                     <div class="mb-3">
-                        <label for="id_annee" class="form-label">Année universitaire</label>
-                        <select name="id_annee" id="id_annee" class="form-select" required>
-                            <option value="">Sélectionner...</option>
-                            {% for annee in annees %}
-                                <option value="{{ annee.id_annee }}">{{ annee.libelle }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- === PROFESSEUR === -->
-                    <div class="mb-3">
-                        <label for="id_professeur" class="form-label">Professeur</label>
-                        <select name="id_professeur" id="id_professeur" class="form-select" required>
-                            <option value="">Sélectionner...</option>
-                            {% for prof in professeurs %}
-                                <option value="{{ prof.id_professeur }}">{{ prof.prenom }} {{ prof.nom }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- === MATIÈRE === -->
-                    <div class="mb-3">
-                        <label for="id_matiere" class="form-label">Matière</label>
-                        <select name="id_matiere" id="id_matiere" class="form-select" required>
-                            <option value="">Sélectionner...</option>
-                            {% for matiere in matieres %}
-                                <option value="{{ matiere.id_matiere }}">{{ matiere.nom_matiere }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- === SECTION === -->
-                    <div class="mb-3">
-                        <label for="id_section" class="form-label">Section</label>
-                        <select name="id_section" id="id_section" class="form-select" required>
-                            <option value="">Sélectionner...</option>
-                            {% for section in sections %}
-                                <option value="{{ section.id_section }}">{{ section.libelle }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <!-- === TYPE D'ENSEIGNEMENT === -->
-                    <div class="mb-3">
-                        <label for="type_enseignement" class="form-label">Type d'enseignement</label>
-                        <select name="type_enseignement" id="type_enseignement" class="form-select" required>
-                            <option value="CM">📖 Cours Magistral (CM)</option>
-                            <option value="TD">📝 Travaux Dirigés (TD)</option>
-                            <option value="TP">🔬 Travaux Pratiques (TP)</option>
-                            <option value="AUTRE">📌 Autre</option>
-                        </select>
-                    </div>
-
-                    <!-- === GROUPE (visible uniquement pour TD/TP) === -->
-                    <div class="mb-3" id="groupe-container" style="display:none;">
-                        <label for="id_groupe" class="form-label">Groupe</label>
-                        <select name="id_groupe" id="id_groupe" class="form-select">
-                            <option value="">Sélectionner un groupe...</option>
-                            {% for groupe in groupes %}
-                                <option value="{{ groupe.id_groupe }}" data-section="{{ groupe.id_section }}">
-                                    {{ groupe.code_groupe }} - {{ groupe.nom_groupe }}
+                        <label for="id_affectation" class="form-label">Affectation</label>
+                        <select name="id_affectation" id="id_affectation" class="form-select" required>
+                            <option value="">Sélectionner une affectation...</option>
+                            {% for affectation in affectations %}
+                                <option value="{{ affectation.id_affectation }}">
+                                    {{ affectation.annee.libelle }} —
+                                    {{ affectation.professeur.prenom or '' }} {{ affectation.professeur.nom }} —
+                                    {{ affectation.matiere.nom_matiere }} —
+                                    {{ affectation.section.libelle }} —
+                                    {{ affectation.type_enseignement }}{% if affectation.groupe %} ({{ affectation.groupe.code_groupe }} - {{ affectation.groupe.nom_groupe }}){% endif %}
                                 </option>
                             {% endfor %}
                         </select>
                         <div class="form-text">
                             <i class="fas fa-info-circle"></i>
-                            Les groupes sont filtrés automatiquement selon la section choisie.
+                            Le professeur, la matière, la section, le groupe et le type sont définis par l'affectation.
                         </div>
                     </div>
 
@@ -132,8 +81,7 @@
                             <li>✅ Conflits de professeur, salle et section</li>
                             <li>✅ Indisponibilités du professeur</li>
                             <li>✅ Capacité de la salle</li>
-                            <li>✅ Groupe obligatoire pour les TD/TP</li>
-                            <li>✅ Affectation créée automatiquement</li>
+                            <li>✅ Affectation existante obligatoire</li>
                         </ul>
                     </div>
 
@@ -152,62 +100,4 @@
     </div>
 </div>
 
-<!-- ===== JAVASCRIPT ===== -->
-<script>
-    // Éléments
-    const typeSelect = document.getElementById('type_enseignement');
-    const sectionSelect = document.getElementById('id_section');
-    const groupeContainer = document.getElementById('groupe-container');
-    const groupeSelect = document.getElementById('id_groupe');
-
-    // Filtrer les groupes par section
-    function filtrerGroupes() {
-        const sectionId = sectionSelect.value;
-        const options = groupeSelect.querySelectorAll('option');
-
-        options.forEach(option => {
-            if (option.value === '') {
-                option.style.display = ''; // Toujours afficher l'option "Sélectionner"
-                return;
-            }
-            const optionSection = option.getAttribute('data-section');
-            if (optionSection === sectionId) {
-                option.style.display = '';
-            } else {
-                option.style.display = 'none';
-            }
-        });
-
-        // Réinitialiser la sélection si le groupe choisi n'est plus visible
-        if (groupeSelect.value) {
-            const selectedOption = groupeSelect.options[groupeSelect.selectedIndex];
-            if (selectedOption && selectedOption.style.display === 'none') {
-                groupeSelect.value = '';
-            }
-        }
-    }
-
-    // Afficher/cacher le champ Groupe selon le type
-    function toggleGroupe() {
-        const type = typeSelect.value;
-        if (type === 'TD' || type === 'TP') {
-            groupeContainer.style.display = 'block';
-            filtrerGroupes();
-        } else {
-            groupeContainer.style.display = 'none';
-            groupeSelect.value = '';
-        }
-    }
-
-    // Écouter les changements
-    typeSelect.addEventListener('change', toggleGroupe);
-    sectionSelect.addEventListener('change', function() {
-        if (typeSelect.value === 'TD' || typeSelect.value === 'TP') {
-            filtrerGroupes();
-        }
-    });
-
-    // Initialisation au chargement
-    toggleGroupe();
-</script>
 {% endblock %}

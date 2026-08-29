@@ -24,6 +24,38 @@
                         <div class="form-text">Ex: Introduction au droit, Algèbre linéaire, Programmation Python</div>
                     </div>
 
+                    <div class="mb-3">
+                        <label for="id_niveau" class="form-label">Niveau <span class="text-danger">*</span></label>
+                        <select name="id_niveau" id="id_niveau" class="form-select" required>
+                            <option value="">Sélectionner un niveau...</option>
+                            {% for niveau in niveaux %}
+                                <option value="{{ niveau.id_niveau }}">{{ niveau.code_niveau }} — {{ niveau.libelle }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="semestre" class="form-label">Semestre <span class="text-danger">*</span></label>
+                        <select name="semestre" id="semestre" class="form-select" required>
+                            <option value="">Sélectionner un semestre...</option>
+                            {% for semestre in semestres %}
+                                <option value="{{ semestre }}">{{ semestre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Types d'enseignement</label>
+                        <div class="form-check">
+                            <input type="checkbox" name="avec_cm" id="avec_cm" class="form-check-input" checked>
+                            <label for="avec_cm" class="form-check-label">CM</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="avec_td" id="avec_td" class="form-check-input">
+                            <label for="avec_td" class="form-check-label">TD</label>
+                        </div>
+                    </div>
+
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle"></i>
                         <strong>Rappel :</strong> Le code matière doit être unique et sera utilisé pour identifier la matière.

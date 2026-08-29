@@ -13,31 +13,20 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        /* === RÉINITIALISATION === */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        /* ===== FORCER LA MARGE EN HAUT ===== */
         body {
+            padding-top: 130px !important;
             background-color: #f8f9fa;
             min-height: 100vh;
         }
 
-        /* === CONTENEUR PRINCIPAL AVEC MARGE SUFFISANTE === */
-        .main-container {
-            margin-top: 80px;  /* ← LA SOLUTION ! */
-            padding: 20px;
+        .navbar {
+            min-height: 70px !important;
         }
 
         .navbar-brand {
             font-weight: bold;
             font-size: 1.4rem;
-        }
-
-        .navbar-brand i {
-            margin-right: 10px;
         }
 
         .flash-messages {
@@ -48,25 +37,11 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             margin-bottom: 20px;
-        }
-
-        .card-header {
-            border-radius: 10px 10px 0 0 !important;
+            margin-top: 10px !important;
         }
 
         .btn {
             border-radius: 8px;
-        }
-
-        .table {
-            background-color: white;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .badge {
-            font-size: 0.9rem;
-            padding: 5px 12px;
         }
 
         footer {
@@ -77,16 +52,14 @@
             border-top: 1px solid #dee2e6;
         }
 
-        /* === RESPONSIVE === */
-        @media (max-width: 768px) {
-            .main-container {
-                margin-top: 60px;
-                padding: 10px;
-            }
+        .container {
+            padding-top: 20px !important;
+            padding-bottom: 30px;
         }
+
     </style>
 </head>
-<body>
+<body style="padding-top: 100px; background-color: #f8f9fa;">
     <!-- BARRE DE NAVIGATION -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
         <div class="container">
@@ -161,8 +134,8 @@
         </div>
     </nav>
 
-    <!-- CONTENU PRINCIPAL -->
-    <div class="container main-container">
+    <!-- CONTENU PRINCIPAL AVEC MARGE SUPPLEMENTAIRE -->
+    <div class="container" style="margin-top: 30px;">
         <!-- Messages flash -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}

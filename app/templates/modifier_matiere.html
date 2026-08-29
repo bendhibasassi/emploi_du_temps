@@ -22,6 +22,44 @@
                                value="{{ matiere.nom_matiere }}" required>
                     </div>
 
+                    <div class="mb-3">
+                        <label for="id_niveau" class="form-label">Niveau <span class="text-danger">*</span></label>
+                        <select name="id_niveau" id="id_niveau" class="form-select" required>
+                            <option value="">Sélectionner un niveau...</option>
+                            {% for niveau in niveaux %}
+                                <option value="{{ niveau.id_niveau }}"
+                                        {% if niveau.id_niveau == matiere.id_niveau %}selected{% endif %}>
+                                    {{ niveau.code_niveau }} — {{ niveau.libelle }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="semestre" class="form-label">Semestre <span class="text-danger">*</span></label>
+                        <select name="semestre" id="semestre" class="form-select" required>
+                            {% for semestre in semestres %}
+                                <option value="{{ semestre }}" {% if semestre == matiere.semestre %}selected{% endif %}>
+                                    {{ semestre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Types d'enseignement</label>
+                        <div class="form-check">
+                            <input type="checkbox" name="avec_cm" id="avec_cm" class="form-check-input"
+                                   {% if matiere.avec_cm %}checked{% endif %}>
+                            <label for="avec_cm" class="form-check-label">CM</label>
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" name="avec_td" id="avec_td" class="form-check-input"
+                                   {% if matiere.avec_td %}checked{% endif %}>
+                            <label for="avec_td" class="form-check-label">TD</label>
+                        </div>
+                    </div>
+
                     <div class="mb-3 form-check">
                         <input type="checkbox" name="actif" id="actif" class="form-check-input"
                                {% if matiere.actif %}checked{% endif %}>

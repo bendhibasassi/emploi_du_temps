@@ -4,6 +4,7 @@ import hashlib
 
 import pandas as pd
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
+from sqlalchemy import or_
 from app import db
 from app.models import (
     Professeur, Matiere, Niveau, Section, Groupe, Salle, Creneau,
@@ -41,6 +42,42 @@ def formater_valeur(objet, attributs):
         if valeur is not None:
             valeurs.append(f"{attribut}: {valeur}")
     return " | ".join(valeurs)
+
+
+def verifier_conflit_etudiants(query, affectation):
+    """Vérifie le chevauchement des étudiants selon le type d'enseignement."""
+    query = query.filter(Affectation.id_section == affectation.id_section)
+
+    if affectation.type_enseignement == 'CM':
+        return query.first() is not None
+
+    return query.filter(or_(
+        Affectation.type_enseignement == 'CM',
+        Affectation.id_groupe == affectation.id_groupe
+    )).first() is not None
+
+
+def filtrer_semaines_compatibles(query, semaine_type):
+    """Conserve les séances dont la semaine chevauche la semaine demandée."""
+    if semaine_type == 'TOUTES':
+        return query
+
+    return query.filter(or_(
+        Seance.semaine_type == 'TOUTES',
+        Seance.semaine_type == semaine_type
+    ))
+
+
+def verifier_capacite_salle(affectation, id_salle):
+    """Retourne la salle et l'effectif requis lorsqu'elle est trop petite."""
+    salle = Salle.query.get(id_salle)
+    public = (Section.query.get(affectation.id_section)
+              if affectation.type_enseignement == 'CM'
+              else Groupe.query.get(affectation.id_groupe))
+
+    if salle and public and public.effectif is not None and salle.capacite < public.effectif:
+        return salle, public.effectif
+    return None
 
 main = Blueprint('main', __name__)
 
@@ -98,14 +135,9 @@ def index():
 
 @main.route('/ajouter_seance', methods=['GET', 'POST'])
 def ajouter_seance():
-    """Ajouter une séance avec création automatique d'affectation"""
+    """Ajouter une séance à partir d'une affectation existante."""
     if request.method == 'POST':
-        id_annee = request.form.get('id_annee', type=int)
-        id_professeur = request.form.get('id_professeur', type=int)
-        id_matiere = request.form.get('id_matiere', type=int)
-        id_section = request.form.get('id_section', type=int)
-        type_enseignement = request.form.get('type_enseignement', 'CM')
-        id_groupe = request.form.get('id_groupe', type=int)
+        id_affectation = request.form.get('id_affectation', type=int)
         jour = request.form.get('jour', type=int)
         id_creneau = request.form.get('id_creneau', type=int)
         id_salle = request.form.get('id_salle', type=int)
@@ -115,81 +147,58 @@ def ajouter_seance():
         conflits = []
 
         # Vérifier que tous les champs sont remplis
-        if not all([id_annee, id_professeur, id_matiere, id_section, jour, id_creneau, id_salle]):
+        if not all([id_affectation, jour, id_creneau, id_salle]):
             flash('❌ Tous les champs sont obligatoires !', 'danger')
             return redirect(url_for('main.ajouter_seance'))
 
-        # Vérifier que le groupe est obligatoire pour les TD/TP
-        if type_enseignement in ('TD', 'TP') and not id_groupe:
-            flash('❌ Un groupe est obligatoire pour les TD/TP !', 'danger')
+        affectation = Affectation.query.get(id_affectation)
+        if affectation is None:
+            flash('❌ Affectation invalide ou inexistante !', 'danger')
             return redirect(url_for('main.ajouter_seance'))
 
-        # Si CM, id_groupe doit être NULL
-        if type_enseignement == 'CM':
-            id_groupe = None
-
-        # Vérifier si une affectation existe déjà, sinon la créer
-        affectation = Affectation.query.filter_by(
-            id_annee=id_annee,
-            id_professeur=id_professeur,
-            id_matiere=id_matiere,
-            id_section=id_section,
-            id_groupe=id_groupe
-        ).first()
-
-        if affectation is None:
-            affectation = Affectation(
-                id_annee=id_annee,
-                id_professeur=id_professeur,
-                id_matiere=id_matiere,
-                id_section=id_section,
-                id_groupe=id_groupe,
-                semestre=1,
-                type_enseignement=type_enseignement,
-                nb_seances_semaine=1,
-                duree_seance_minutes=90,
-                actif=True
-            )
-            db.session.add(affectation)
-            db.session.flush()
-            flash('✅ Affectation créée automatiquement !', 'info')
+        id_annee = affectation.id_annee
+        id_professeur = affectation.id_professeur
+        id_matiere = affectation.id_matiere
+        id_section = affectation.id_section
+        type_enseignement = affectation.type_enseignement
 
         # 1. Vérifier la salle
-        salle_occupee = Seance.query.filter_by(
+        salle_occupee = filtrer_semaines_compatibles(Seance.query.filter_by(
             id_annee=id_annee,
             jour=jour,
             id_creneau=id_creneau,
             id_salle=id_salle
-        ).first()
+        ), semaine_type).first()
         if salle_occupee:
             salle = Salle.query.get(id_salle)
             conflits.append(f"❌ La salle {salle.nom_salle} est déjà occupée à ce créneau !")
 
         # 2. Vérifier le professeur
-        prof_occupe = Seance.query.join(
+        prof_occupe = filtrer_semaines_compatibles(Seance.query.join(
             Affectation, Seance.id_affectation == Affectation.id_affectation
         ).filter(
             Seance.id_annee == id_annee,
             Seance.jour == jour,
             Seance.id_creneau == id_creneau,
             Affectation.id_professeur == id_professeur
-        ).first()
+        ), semaine_type).first()
         if prof_occupe:
             prof = Professeur.query.get(id_professeur)
             conflits.append(f"❌ Le professeur {prof.prenom} {prof.nom} est déjà occupé !")
 
-        # 3. Vérifier la section
-        section_occupee = Seance.query.join(
+        # 3. Vérifier les étudiants (section en CM, groupe en TD/TP)
+        conflit_etudiants = verifier_conflit_etudiants(filtrer_semaines_compatibles(Seance.query.join(
             Affectation, Seance.id_affectation == Affectation.id_affectation
         ).filter(
             Seance.id_annee == id_annee,
             Seance.jour == jour,
-            Seance.id_creneau == id_creneau,
-            Affectation.id_section == id_section
-        ).first()
-        if section_occupee:
-            section = Section.query.get(id_section)
-            conflits.append(f"❌ La section {section.libelle} est déjà occupée !")
+            Seance.id_creneau == id_creneau
+        ), semaine_type), affectation)
+        if conflit_etudiants:
+            public = (f"La section {affectation.section.libelle}"
+                      if type_enseignement == 'CM'
+                      else f"Le groupe {affectation.groupe.nom_groupe}")
+            conflits.append(f"❌ {public} est déjà occupé !")
 
         # 4. Vérifier l'indisponibilité du professeur
         ok, message = verifier_indisponibilite(
@@ -199,10 +208,10 @@ def ajouter_seance():
             conflits.append(f"❌ Indisponibilité : {message}")
 
         # 5. Vérifier la capacité de la salle
-        salle = Salle.query.get(id_salle)
-        section = Section.query.get(id_section)
-        if salle and section and salle.capacite < section.effectif:
-            conflits.append(f"❌ Salle trop petite ! Capacité: {salle.capacite}, Effectif: {section.effectif}")
+        conflit_capacite = verifier_capacite_salle(affectation, id_salle)
+        if conflit_capacite:
+            salle, effectif = conflit_capacite
+            conflits.append(f"❌ Salle trop petite ! Capacité: {salle.capacite}, Effectif: {effectif}")
 
         # === AJOUT DE LA SÉANCE ===
         if conflits:
@@ -243,22 +252,19 @@ def ajouter_seance():
         return redirect(url_for('main.ajouter_seance'))
 
     # === GET : Afficher le formulaire ===
-    annees = AnneeUniversitaire.query.all()
-    professeurs = Professeur.query.filter_by(actif=True).all()
-    matieres = Matiere.query.filter_by(actif=True).all()
-    sections = Section.query.filter_by(actif=True).all()
+    affectations = Affectation.query.order_by(
+        Affectation.id_annee,
+        Affectation.id_section,
+        Affectation.type_enseignement,
+        Affectation.id_groupe
+    ).all()
     creneaux = Creneau.query.order_by(Creneau.ordre).all()
     salles = Salle.query.filter_by(actif=True).all()
-    groupes = Groupe.query.filter_by(actif=True).all()
 
     return render_template('ajouter_seance.html',
-        annees=annees,
-        professeurs=professeurs,
-        matieres=matieres,
-        sections=sections,
+        affectations=affectations,
         creneaux=creneaux,
         salles=salles,
-        groupes=groupes,
         JOURS=JOURS
     )
 
@@ -267,43 +273,48 @@ def verifier_conflits_seance(seance, jour, id_creneau, id_salle):
     """Vérifie les conflits d'une séance, en excluant la séance modifiée."""
     conflits = []
 
-    salle_occupee = Seance.query.filter(
+    salle_occupee = filtrer_semaines_compatibles(Seance.query.filter(
         Seance.id_seance != seance.id_seance,
         Seance.id_annee == seance.id_annee,
         Seance.jour == jour,
         Seance.id_creneau == id_creneau,
         Seance.id_salle == id_salle,
-        Seance.semaine_type == seance.semaine_type,
         Seance.statut != 'ANNULEE'
-    ).first()
+    ), seance.semaine_type).first()
     if salle_occupee:
         conflits.append('Cette salle est déjà occupée à ce créneau.')
 
     affectation = Affectation.query.get(seance.id_affectation)
     if affectation:
-        professeur_occupe = Seance.query.join(Affectation).filter(
+        professeur_occupe = filtrer_semaines_compatibles(Seance.query.join(Affectation).filter(
             Seance.id_seance != seance.id_seance,
             Seance.id_annee == seance.id_annee,
             Seance.jour == jour,
             Seance.id_creneau == id_creneau,
-            Seance.semaine_type == seance.semaine_type,
             Affectation.id_professeur == affectation.id_professeur,
             Seance.statut != 'ANNULEE'
-        ).first()
+        ), seance.semaine_type).first()
         if professeur_occupe:
             conflits.append('Le professeur est déjà occupé à ce créneau.')
 
-        section_occupee = Seance.query.join(Affectation).filter(
+        conflit_etudiants = verifier_conflit_etudiants(filtrer_semaines_compatibles(
+            Seance.query.join(Affectation).filter(
             Seance.id_seance != seance.id_seance,
             Seance.id_annee == seance.id_annee,
             Seance.jour == jour,
             Seance.id_creneau == id_creneau,
-            Seance.semaine_type == seance.semaine_type,
-            Affectation.id_section == affectation.id_section,
             Seance.statut != 'ANNULEE'
-        ).first()
-        if section_occupee:
-            conflits.append('La section est déjà occupée à ce créneau.')
+        ), seance.semaine_type), affectation)
+        if conflit_etudiants:
+            public = 'La section' if affectation.type_enseignement == 'CM' else 'Le groupe'
+            conflits.append(f'{public} est déjà occupé à ce créneau.')
+
+        conflit_capacite = verifier_capacite_salle(affectation, id_salle)
+        if conflit_capacite:
+            salle, effectif = conflit_capacite
+            conflits.append(
+                f'Cette salle est trop petite (capacité : {salle.capacite}, effectif : {effectif}).'
+            )
 
     return conflits
 
@@ -483,18 +494,58 @@ def modifier_professeur(id_professeur):
     professeur = Professeur.query.get_or_404(id_professeur)
 
     if request.method == 'POST':
-        ancienne_valeur = (f"Nom: {professeur.nom}, Prénom: {professeur.prenom or ''}, "
-                           f"Grade: {professeur.grade or ''}, Email: {professeur.email or ''}")
-        professeur.nom = request.form.get('nom', professeur.nom).strip()
-        professeur.prenom = request.form.get('prenom', professeur.prenom or '').strip()
-        professeur.grade = request.form.get('grade', professeur.grade or '').strip()
-        professeur.email = request.form.get('email', professeur.email or '').strip()
-        professeur.telephone = request.form.get('telephone', professeur.telephone or '').strip()
-        professeur.actif = request.form.get('actif') == 'on'
-
         try:
-            nouvelle_valeur = (f"Nom: {professeur.nom}, Prénom: {professeur.prenom or ''}, "
-                              f"Grade: {professeur.grade or ''}, Email: {professeur.email or ''}")
+            # Récupérer les données du formulaire
+            nom = request.form.get('nom', '').strip()
+            prenom = request.form.get('prenom', '').strip()
+            grade = request.form.get('grade', '').strip()
+            email = request.form.get('email', '').strip()
+            telephone = request.form.get('telephone', '').strip()
+            actif = request.form.get('actif') == 'on'
+
+            # === NOUVEAUX CHAMPS ===
+            statut = request.form.get('statut', 'Permanent').strip()
+            peut_cm = request.form.get('peut_cm') == 'on'
+            peut_td = request.form.get('peut_td') == 'on'
+            peut_tp = request.form.get('peut_tp') == 'on'
+
+            # Validation du nom
+            if not nom:
+                flash('❌ Le nom est obligatoire !', 'danger')
+                return redirect(url_for('main.modifier_professeur', id_professeur=id_professeur))
+
+            # Vérifier si l'email est déjà utilisé par un autre professeur
+            if email:
+                existing = Professeur.query.filter(
+                    Professeur.email == email,
+                    Professeur.id_professeur != id_professeur
+                ).first()
+                if existing:
+                    flash(f'❌ L\'email "{email}" est déjà utilisé par {existing.prenom} {existing.nom} !', 'danger')
+                    return redirect(url_for('main.modifier_professeur', id_professeur=id_professeur))
+
+            # Mettre à jour les champs
+            ancienne_valeur = (f"Nom: {professeur.nom}, Prénom: {professeur.prenom}, "
+                               f"Grade: {professeur.grade}, Statut: {professeur.statut}")
+
+            professeur.nom = nom
+            professeur.prenom = prenom if prenom else None
+            professeur.grade = grade if grade else None
+            professeur.email = email if email else None
+            professeur.telephone = telephone if telephone else None
+            professeur.actif = actif
+            professeur.statut = statut
+            professeur.peut_cm = peut_cm
+            professeur.peut_td = peut_td
+            professeur.peut_tp = peut_tp
+
+            # Enregistrer
+            db.session.commit()
+
+            nouvelle_valeur = (f"Nom: {professeur.nom}, Prénom: {professeur.prenom}, "
+                               f"Grade: {professeur.grade}, Statut: {professeur.statut}")
+
+            # Historique
             ajouter_historique(
                 utilisateur='Administrateur',
                 action='MODIFICATION',
@@ -504,12 +555,14 @@ def modifier_professeur(id_professeur):
                 nouvelle_valeur=nouvelle_valeur,
                 ip=request.remote_addr
             )
-            db.session.commit()
-            flash(f'✅ Professeur {professeur.prenom} {professeur.nom} modifié avec succès !', 'success')
+
+            flash(f'✅ Professeur {prenom} {nom} modifié avec succès !', 'success')
             return redirect(url_for('main.professeurs'))
+
         except Exception as e:
             db.session.rollback()
-            flash(f'❌ Erreur lors de la modification : {e}', 'danger')
+            flash(f'❌ Erreur lors de la modification : {str(e)}', 'danger')
+            return redirect(url_for('main.modifier_professeur', id_professeur=id_professeur))
 
     return render_template('modifier_professeur.html', professeur=professeur)
 
@@ -817,10 +870,17 @@ def supprimer_groupe(id_groupe):
 
 # ============ MATIERES ============
 
+SEMESTRES_MATIERE = ('S1', 'S2', 'S3', 'S4', 'S5', 'S6')
+
+
 @main.route('/matieres')
 def matieres():
     """Liste des matières"""
-    matieres_list = Matiere.query.filter_by(actif=True).all()
+    matieres_list = Matiere.query.outerjoin(Niveau).order_by(
+        Niveau.code_niveau,
+        Matiere.semestre,
+        Matiere.code_matiere
+    ).all()
     return render_template('matieres.html', matieres=matieres_list)
 
 
@@ -830,10 +890,22 @@ def ajouter_matiere():
     if request.method == 'POST':
         code_matiere = request.form.get('code_matiere', '').strip()
         nom_matiere = request.form.get('nom_matiere', '').strip()
+        id_niveau = request.form.get('id_niveau', type=int)
+        semestre = request.form.get('semestre', '').strip().upper()
+        avec_cm = request.form.get('avec_cm') == 'on'
+        avec_td = request.form.get('avec_td') == 'on'
 
         # Vérifications
-        if not code_matiere or not nom_matiere:
-            flash('❌ Les champs Code et Nom sont obligatoires !', 'danger')
+        if not code_matiere or not nom_matiere or not id_niveau or not semestre:
+            flash('❌ Code, nom, niveau et semestre sont obligatoires !', 'danger')
+            return redirect(url_for('main.ajouter_matiere'))
+
+        if semestre not in SEMESTRES_MATIERE:
+            flash('❌ Le semestre sélectionné est invalide !', 'danger')
+            return redirect(url_for('main.ajouter_matiere'))
+
+        if not Niveau.query.get(id_niveau):
+            flash('❌ Le niveau sélectionné est invalide !', 'danger')
             return redirect(url_for('main.ajouter_matiere'))
 
         # Vérifier si la matière existe déjà
@@ -846,6 +918,10 @@ def ajouter_matiere():
         matiere = Matiere(
             code_matiere=code_matiere,
             nom_matiere=nom_matiere,
+            id_niveau=id_niveau,
+            semestre=semestre,
+            avec_cm=avec_cm,
+            avec_td=avec_td,
             actif=True
         )
 
@@ -859,7 +935,9 @@ def ajouter_matiere():
                 action='AJOUT',
                 type_objet='MATIERE',
                 id_objet=matiere.id_matiere,
-                nouvelle_valeur=f"Code: {code_matiere}, Nom: {nom_matiere}",
+                nouvelle_valeur=(f"Code: {code_matiere}, Nom: {nom_matiere}, "
+                                  f"Niveau: {id_niveau}, Semestre: {semestre}, "
+                                  f"CM: {avec_cm}, TD: {avec_td}, Actif: True"),
                 ip=request.remote_addr
             )
 
@@ -869,7 +947,12 @@ def ajouter_matiere():
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
-    return render_template('ajouter_matiere.html')
+    niveaux = Niveau.query.order_by(Niveau.code_niveau, Niveau.libelle).all()
+    return render_template(
+        'ajouter_matiere.html',
+        niveaux=niveaux,
+        semestres=SEMESTRES_MATIERE
+    )
 
 
 @main.route('/matiere/<int:id_matiere>/modifier', methods=['GET', 'POST'])
@@ -878,16 +961,52 @@ def modifier_matiere(id_matiere):
     matiere = Matiere.query.get_or_404(id_matiere)
 
     if request.method == 'POST':
-        ancienne_valeur = f"Code: {matiere.code_matiere}, Nom: {matiere.nom_matiere}"
+        code_matiere = request.form.get('code_matiere', '').strip()
+        nom_matiere = request.form.get('nom_matiere', '').strip()
+        id_niveau = request.form.get('id_niveau', type=int)
+        semestre = request.form.get('semestre', '').strip().upper()
+        avec_cm = request.form.get('avec_cm') == 'on'
+        avec_td = request.form.get('avec_td') == 'on'
+        actif = request.form.get('actif') == 'on'
 
-        matiere.code_matiere = request.form.get('code_matiere', matiere.code_matiere).strip()
-        matiere.nom_matiere = request.form.get('nom_matiere', matiere.nom_matiere).strip()
-        matiere.actif = request.form.get('actif') == 'on'
+        if not code_matiere or not nom_matiere or not id_niveau or not semestre:
+            flash('❌ Code, nom, niveau et semestre sont obligatoires !', 'danger')
+            return redirect(url_for('main.modifier_matiere', id_matiere=id_matiere))
+
+        if semestre not in SEMESTRES_MATIERE:
+            flash('❌ Le semestre sélectionné est invalide !', 'danger')
+            return redirect(url_for('main.modifier_matiere', id_matiere=id_matiere))
+
+        if not Niveau.query.get(id_niveau):
+            flash('❌ Le niveau sélectionné est invalide !', 'danger')
+            return redirect(url_for('main.modifier_matiere', id_matiere=id_matiere))
+
+        existing = Matiere.query.filter(
+            Matiere.code_matiere == code_matiere,
+            Matiere.id_matiere != id_matiere
+        ).first()
+        if existing:
+            flash(f'❌ La matière {code_matiere} existe déjà !', 'danger')
+            return redirect(url_for('main.modifier_matiere', id_matiere=id_matiere))
+
+        ancienne_valeur = (f"Code: {matiere.code_matiere}, Nom: {matiere.nom_matiere}, "
+                           f"Niveau: {matiere.id_niveau}, Semestre: {matiere.semestre}, "
+                           f"CM: {matiere.avec_cm}, TD: {matiere.avec_td}, Actif: {matiere.actif}")
+
+        matiere.code_matiere = code_matiere
+        matiere.nom_matiere = nom_matiere
+        matiere.id_niveau = id_niveau
+        matiere.semestre = semestre
+        matiere.avec_cm = avec_cm
+        matiere.avec_td = avec_td
+        matiere.actif = actif
 
         try:
             db.session.commit()
 
-            nouvelle_valeur = f"Code: {matiere.code_matiere}, Nom: {matiere.nom_matiere}"
+            nouvelle_valeur = (f"Code: {matiere.code_matiere}, Nom: {matiere.nom_matiere}, "
+                               f"Niveau: {matiere.id_niveau}, Semestre: {matiere.semestre}, "
+                               f"CM: {matiere.avec_cm}, TD: {matiere.avec_td}, Actif: {matiere.actif}")
 
             ajouter_historique(
                 utilisateur='Administrateur',
@@ -905,7 +1024,13 @@ def modifier_matiere(id_matiere):
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
-    return render_template('modifier_matiere.html', matiere=matiere)
+    niveaux = Niveau.query.order_by(Niveau.code_niveau, Niveau.libelle).all()
+    return render_template(
+        'modifier_matiere.html',
+        matiere=matiere,
+        niveaux=niveaux,
+        semestres=SEMESTRES_MATIERE
+    )
 
 
 @main.route('/matiere/<int:id_matiere>/supprimer', methods=['POST'])

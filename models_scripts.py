@@ -42,6 +42,20 @@ class Section(Base):
         UniqueConstraint("id_niveau", "code_section", name="uq_section_niveau_code"),
     )
 
+class Groupe(Base):
+    __tablename__ = "tbl_groupes"
+
+    id_groupe = Column(Integer, primary_key=True)
+    id_section = Column(Integer, ForeignKey("tbl_sections.id_section"), nullable=False)
+    code_groupe = Column(String(20), nullable=False)
+    nom_groupe = Column(String(100), nullable=False)
+    effectif = Column(Integer)
+    actif = Column(Boolean, default=True)
+
+    __table_args__ = (
+        UniqueConstraint("id_section", "code_groupe", name="uq_section_code_groupe"),
+    )
+
 class Professeur(Base):
     __tablename__ = "tbl_professeurs"
     
@@ -105,6 +119,7 @@ class Affectation(Base):
     id_professeur = Column(Integer, ForeignKey("tbl_professeurs.id_professeur"), nullable=False)
     id_matiere = Column(Integer, ForeignKey("tbl_matieres.id_matiere"), nullable=False)
     id_section = Column(Integer, ForeignKey("tbl_sections.id_section"), nullable=False)
+    id_groupe = Column(Integer, ForeignKey("tbl_groupes.id_groupe"), nullable=True)
     semestre = Column(Integer, nullable=False)
     type_enseignement = Column(String(10), nullable=False)
     nb_seances_semaine = Column(Integer, default=1)

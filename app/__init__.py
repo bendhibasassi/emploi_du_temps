@@ -2,9 +2,23 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 import os
+import sqlite3
+
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
 # Initialisation de SQLAlchemy
 db = SQLAlchemy()
+
+
+@event.listens_for(Engine, "connect")
+def activer_cles_etrangeres_sqlite(dbapi_connection, connection_record):
+    """Active les contraintes de clés étrangères sur chaque connexion SQLite."""
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
 
 def create_app():
     app = Flask(__name__)
