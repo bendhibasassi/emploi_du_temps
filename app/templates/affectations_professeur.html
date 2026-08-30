@@ -28,6 +28,7 @@
                 <th>Type</th>
                 <th>Semestre</th>
                 <th>Statut</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -40,6 +41,7 @@
                 <td><span class="badge teaching-type type-{{ affectation.type_enseignement|lower }}">{{ affectation.type_enseignement }}</span></td>
                 <td>S{{ affectation.semestre }}</td>
                 <td><span class="badge {% if affectation.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Active' if affectation.actif else 'Inactive' }}</span></td>
+                <td><a href="{{ url_for('main.modifier_affectation', id_affectation=affectation.id_affectation) }}" class="btn btn-sm btn-outline-primary">Modifier</a></td>
             </tr>
         {% endfor %}
         </tbody>

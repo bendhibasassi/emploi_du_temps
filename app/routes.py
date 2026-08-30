@@ -384,6 +384,201 @@ def affectations():
     )
 
 
+TYPES_ENSEIGNEMENT = ('CM', 'TD', 'TP')
+
+
+def contexte_formulaire_affectation(affectation=None):
+    """Charge les référentiels nécessaires au formulaire d'affectation."""
+    return {
+        'affectation': affectation,
+        'annees': AnneeUniversitaire.query.order_by(
+            AnneeUniversitaire.date_debut.desc()
+        ).all(),
+        'professeurs': Professeur.query.order_by(
+            Professeur.nom, Professeur.prenom
+        ).all(),
+        'matieres': Matiere.query.order_by(
+            Matiere.code_matiere
+        ).all(),
+        'sections': Section.query.options(joinedload(Section.niveau)).order_by(
+            Section.id_niveau, Section.code_section
+        ).all(),
+        'groupes': Groupe.query.order_by(
+            Groupe.id_section, Groupe.code_groupe
+        ).all(),
+        'types_enseignement': TYPES_ENSEIGNEMENT,
+        'annee_active': AnneeUniversitaire.query.filter_by(active=True).first(),
+    }
+
+
+def lire_affectation_formulaire(affectation=None):
+    """Valide et normalise les champs communs de création/modification."""
+    id_annee = request.form.get('id_annee', type=int)
+    id_professeur = request.form.get('id_professeur', type=int)
+    id_matiere = request.form.get('id_matiere', type=int)
+    id_section = request.form.get('id_section', type=int)
+    id_groupe = request.form.get('id_groupe', type=int)
+    type_enseignement = request.form.get('type_enseignement', '').strip()
+
+    objets = {
+        'annee': AnneeUniversitaire.query.get(id_annee) if id_annee else None,
+        'professeur': Professeur.query.get(id_professeur) if id_professeur else None,
+        'matiere': Matiere.query.get(id_matiere) if id_matiere else None,
+        'section': Section.query.get(id_section) if id_section else None,
+        'groupe': Groupe.query.get(id_groupe) if id_groupe else None,
+    }
+    requis = ('annee', 'professeur', 'matiere', 'section')
+    if any(objets[cle] is None for cle in requis):
+        return None, 'Année, professeur, matière et section valides sont obligatoires.'
+    if id_groupe and objets['groupe'] is None:
+        return None, 'Le groupe sélectionné est invalide.'
+    if objets['groupe'] and objets['groupe'].id_section != id_section:
+        return None, 'Le groupe sélectionné n’appartient pas à la section choisie.'
+    if type_enseignement not in TYPES_ENSEIGNEMENT:
+        return None, 'Le type d’enseignement doit être CM, TD ou TP.'
+
+    paire_historique = bool(
+        affectation and affectation.id_matiere == id_matiere and
+        affectation.type_enseignement == type_enseignement
+    )
+    indicateur_inhabituel = (
+        (type_enseignement == 'CM' and not objets['matiere'].avec_cm) or
+        (type_enseignement == 'TD' and not objets['matiere'].avec_td)
+    )
+    if (indicateur_inhabituel and not paire_historique and
+            request.form.get('confirmer_indicateur') != 'on'):
+        return None, (
+            f'La matière indique que le type {type_enseignement} n’est pas '
+            'habituel. Cochez la confirmation pour enregistrer malgré cet '
+            'avertissement.'
+        )
+
+    try:
+        semestre = int(request.form.get('semestre', ''))
+        nb_seances = int(request.form.get('nb_seances_semaine', ''))
+        duree = int(request.form.get('duree_seance_minutes', ''))
+        priorite = int(request.form.get('priorite', ''))
+        volume_texte = request.form.get('volume_total_minutes', '').strip()
+        volume = int(volume_texte) if volume_texte else None
+    except (TypeError, ValueError):
+        return None, 'Les valeurs de semestre et de charge doivent être des entiers.'
+    if not 1 <= semestre <= 6:
+        return None, 'Le semestre doit être compris entre 1 et 6.'
+    if nb_seances <= 0 or duree <= 0 or priorite < 0:
+        return None, 'Séances, durée et priorité doivent contenir des valeurs valides.'
+    if volume is not None and volume < 0:
+        return None, 'Le volume total ne peut pas être négatif.'
+
+    valeurs = {
+        'id_annee': id_annee,
+        'id_professeur': id_professeur,
+        'id_matiere': id_matiere,
+        'id_section': id_section,
+        'id_groupe': id_groupe,
+        'type_enseignement': type_enseignement,
+        'semestre': semestre,
+        'nb_seances_semaine': nb_seances,
+        'duree_seance_minutes': duree,
+        'volume_total_minutes': volume,
+        'priorite': priorite,
+        'actif': request.form.get('actif') == 'on',
+    }
+
+    doublon = Affectation.query.filter_by(
+        id_annee=id_annee,
+        id_professeur=id_professeur,
+        id_matiere=id_matiere,
+        id_section=id_section,
+        id_groupe=id_groupe,
+        type_enseignement=type_enseignement,
+        semestre=semestre,
+    )
+    if affectation:
+        doublon = doublon.filter(
+            Affectation.id_affectation != affectation.id_affectation
+        )
+    if doublon.first():
+        return None, 'Une affectation identique existe déjà.'
+    return valeurs, None
+
+
+@main.route('/affectation/ajouter', methods=['GET', 'POST'])
+def ajouter_affectation():
+    """Créer une affectation pédagogique."""
+    if request.method == 'POST':
+        valeurs, erreur = lire_affectation_formulaire()
+        if erreur:
+            flash(erreur, 'danger')
+        else:
+            affectation = Affectation(**valeurs)
+            db.session.add(affectation)
+            db.session.commit()
+            flash('Affectation créée avec succès.', 'success')
+            return redirect(url_for(
+                'main.affectations', annee_id=affectation.id_annee
+            ))
+    return render_template(
+        'formulaire_affectation.html',
+        **contexte_formulaire_affectation()
+    )
+
+
+@main.route('/affectation/<int:id_affectation>/modifier', methods=['GET', 'POST'])
+def modifier_affectation(id_affectation):
+    """Modifier une affectation sans altérer ses séances."""
+    affectation = Affectation.query.options(
+        selectinload(Affectation.seances)
+    ).get_or_404(id_affectation)
+    if request.method == 'POST':
+        valeurs, erreur = lire_affectation_formulaire(affectation)
+        if not erreur and affectation.seances:
+            champs_semantiques = (
+                'id_annee', 'id_professeur', 'id_matiere', 'id_section',
+                'id_groupe', 'type_enseignement'
+            )
+            if any(getattr(affectation, champ) != valeurs[champ]
+                   for champ in champs_semantiques):
+                erreur = (
+                    'Cette affectation possède des séances : année, professeur, '
+                    'matière, section, groupe et type ne peuvent pas être modifiés.'
+                )
+        if erreur:
+            flash(erreur, 'danger')
+        else:
+            for champ, valeur in valeurs.items():
+                setattr(affectation, champ, valeur)
+            db.session.commit()
+            flash('Affectation modifiée avec succès.', 'success')
+            return redirect(url_for(
+                'main.affectations', annee_id=affectation.id_annee
+            ))
+    return render_template(
+        'formulaire_affectation.html',
+        **contexte_formulaire_affectation(affectation)
+    )
+
+
+@main.route('/affectation/<int:id_affectation>/statut', methods=['POST'])
+def changer_statut_affectation(id_affectation):
+    """Activer ou désactiver une affectation sans supprimer ses séances."""
+    affectation = Affectation.query.get_or_404(id_affectation)
+    actif = request.form.get('actif')
+    if actif not in {'0', '1'}:
+        flash('Statut d’affectation invalide.', 'danger')
+    else:
+        affectation.actif = actif == '1'
+        db.session.commit()
+        flash(
+            'Affectation activée.' if affectation.actif
+            else 'Affectation désactivée.',
+            'success'
+        )
+    return redirect(url_for(
+        'main.affectations', annee_id=affectation.id_annee,
+        actif='1' if affectation.actif else '0'
+    ))
+
+
 @main.route('/niveaux-sections')
 def niveaux_sections():
     """Consulter la hiérarchie des niveaux, sections et groupes."""
