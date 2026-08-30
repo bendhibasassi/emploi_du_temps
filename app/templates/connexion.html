@@ -16,7 +16,13 @@
                     </div>
                     <div class="mb-3">
                         <label for="mot_de_passe" class="form-label">Mot de passe</label>
-                        <input type="password" id="mot_de_passe" name="mot_de_passe" class="form-control" required>
+                        <div class="input-group">
+                            <input type="password" id="mot_de_passe" name="mot_de_passe" class="form-control" required>
+                            <button type="button" id="afficher_mot_de_passe" class="btn btn-outline-secondary"
+                                    aria-label="Afficher le mot de passe" aria-pressed="false">
+                                <i class="fas fa-eye" aria-hidden="true"></i>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">Se connecter</button>
                 </form>
@@ -24,4 +30,21 @@
         </div>
     </div>
 </div>
+<script>
+    const champMotDePasse = document.getElementById('mot_de_passe');
+    const boutonAffichage = document.getElementById('afficher_mot_de_passe');
+    const iconeAffichage = boutonAffichage.querySelector('i');
+
+    boutonAffichage.addEventListener('click', () => {
+        const motDePasseVisible = champMotDePasse.type === 'password';
+        champMotDePasse.type = motDePasseVisible ? 'text' : 'password';
+        boutonAffichage.setAttribute('aria-pressed', String(motDePasseVisible));
+        boutonAffichage.setAttribute(
+            'aria-label',
+            motDePasseVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'
+        );
+        iconeAffichage.classList.toggle('fa-eye', !motDePasseVisible);
+        iconeAffichage.classList.toggle('fa-eye-slash', motDePasseVisible);
+    });
+</script>
 {% endblock %}
