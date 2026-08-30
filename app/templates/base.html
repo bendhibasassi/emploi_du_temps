@@ -41,7 +41,10 @@
         <header class="app-header">
             <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-controls="appSidebar" aria-expanded="false" aria-label="Ouvrir le menu"><i class="fas fa-bars"></i></button>
             <div class="header-context"><span class="header-title">Planification universitaire</span><span class="header-subtitle">Organisation pédagogique et ressources</span></div>
-            <div class="academic-year"><i class="far fa-calendar"></i><span>2025–2026</span></div>
+            <div class="academic-year">
+                <i class="far fa-calendar"></i>
+                <span>{% if annee_active_globale %}Année de travail : {{ annee_active_globale.libelle }}{% else %}Aucune année active{% endif %}</span>
+            </div>
         </header>
         <main class="app-main" id="mainContent">
             {% with messages = get_flashed_messages(with_categories=true) %}

@@ -9,13 +9,16 @@
                 <h4><i class="fas fa-ban"></i> Ajouter une indisponibilité</h4>
             </div>
             <div class="card-body">
+                {% if aucune_annee_active %}
+                <div class="alert alert-warning">Aucune année de travail active. Sélectionnez explicitement une année avant l'enregistrement.</div>
+                {% endif %}
                 <form method="POST">
                     <div class="mb-3">
                         <label for="id_annee" class="form-label">Année universitaire</label>
                         <select name="id_annee" id="id_annee" class="form-select" required>
                             <option value="">Sélectionner...</option>
                             {% for annee in annees %}
-                                <option value="{{ annee.id_annee }}">{{ annee.libelle }}</option>
+                                <option value="{{ annee.id_annee }}" {% if annee_id == annee.id_annee %}selected{% endif %}>{{ annee.libelle }}</option>
                             {% endfor %}
                         </select>
                     </div>

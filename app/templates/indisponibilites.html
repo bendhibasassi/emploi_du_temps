@@ -5,11 +5,30 @@
 <div class="page-heading">
     <div><h1>Indisponibilités</h1><p>Contraintes horaires du personnel enseignant.</p></div>
     <div class="page-actions">
-                <a href="{{ url_for('main.ajouter_indisponibilite') }}" class="btn btn-primary">
+                <a href="{{ url_for('main.ajouter_indisponibilite', annee_id=annee_id) if annee_id else url_for('main.ajouter_indisponibilite') }}" class="btn btn-primary">
                     <i class="fas fa-plus"></i> Ajouter
                 </a>
     </div>
 </div>
+
+{% if aucune_annee_active %}
+<div class="alert alert-warning">Aucune année de travail active. Activez une année universitaire pour consulter ses indisponibilités.</div>
+{% endif %}
+<form method="GET" class="row g-2 align-items-end mb-4">
+    <div class="col-md-4">
+        <label for="annee_id" class="form-label">Année universitaire</label>
+        <select name="annee_id" id="annee_id" class="form-select">
+            <option value="">Année de travail (par défaut)</option>
+            {% for annee in annees %}
+                <option value="{{ annee.id_annee }}" {% if annee_id == annee.id_annee %}selected{% endif %}>{{ annee.libelle }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Filtrer</button>
+        <a href="{{ url_for('main.indisponibilites') }}" class="btn btn-secondary">Réinitialiser</a>
+    </div>
+</form>
 
 {% if indispos %}
 <div class="table-responsive">
@@ -57,7 +76,7 @@
 {% else %}
 <div class="alert alert-info">
     <i class="fas fa-info-circle"></i> Aucune indisponibilité enregistrée.
-    <a href="{{ url_for('main.ajouter_indisponibilite') }}" class="alert-link">Ajouter une indisponibilité</a>
+    <a href="{{ url_for('main.ajouter_indisponibilite', annee_id=annee_id) if annee_id else url_for('main.ajouter_indisponibilite') }}" class="alert-link">Ajouter une indisponibilité</a>
 </div>
 {% endif %}
 {% endblock %}

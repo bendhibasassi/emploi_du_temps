@@ -36,6 +36,16 @@ def create_app():
     # Importer les routes
     from app.routes import main
     app.register_blueprint(main)
+
+    @app.context_processor
+    def injecter_annee_active():
+        """Rend l'année de travail disponible dans tous les templates."""
+        from app.models import AnneeUniversitaire
+        return {
+            'annee_active_globale': AnneeUniversitaire.query.filter_by(
+                active=True
+            ).first()
+        }
     
     # Créer les tables si elles n'existent pas
     with app.app_context():

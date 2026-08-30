@@ -12,6 +12,10 @@
     </div>
 </div>
 
+{% if not annee_active %}
+<div class="alert alert-warning">Aucune année de travail active. Les statistiques annuelles ne sont pas affichées.</div>
+{% endif %}
+
 <div class="row g-3">
     {% set indicateurs = [
         ('fa-chalkboard-user', 'Professeurs', professeurs|length),

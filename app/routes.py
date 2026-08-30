@@ -6,6 +6,7 @@ import re
 import pandas as pd
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
 from sqlalchemy import or_
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload, selectinload
 from app import db
 from app.models import (
@@ -146,6 +147,25 @@ def codes_salles_officielles_disponibles():
     }
     return [code for code in REFERENTIEL_SALLES if code not in codes_utilises]
 
+
+def determiner_annee_consultation():
+    """Retourne l'année demandée, sinon l'année active, sinon aucune."""
+    annee_brute = request.args.get('annee_id')
+    if annee_brute is None:
+        annee_brute = request.args.get('annee')
+
+    if annee_brute and annee_brute.strip():
+        try:
+            return int(annee_brute), False
+        except ValueError:
+            return -1, False
+
+    annee_active = AnneeUniversitaire.query.filter_by(active=True).first()
+    return (
+        annee_active.id_annee if annee_active else None,
+        annee_active is None
+    )
+
 main = Blueprint('main', __name__)
 
 # JOURS de la semaine
@@ -186,23 +206,36 @@ def index():
     """Tableau de bord"""
     annees = AnneeUniversitaire.query.all()
     annee_active = AnneeUniversitaire.query.filter_by(active=True).first()
+    annee_id = annee_active.id_annee if annee_active else None
     professeurs = Professeur.query.all()
     matieres = Matiere.query.all()
     sections = Section.query.all()
     groupes = Groupe.query.all()
-    affectations = Affectation.query.all()
     salles = Salle.query.all()
-    seances = Seance.query.all()
-    affectations_sans_seance = Affectation.query.outerjoin(Seance).filter(
-        Seance.id_seance.is_(None)
-    ).count()
-    matieres_sans_affectation = Matiere.query.outerjoin(Affectation).filter(
-        Affectation.id_affectation.is_(None)
-    ).count()
-    professeurs_sans_affectation = Professeur.query.outerjoin(Affectation).filter(
-        Affectation.id_affectation.is_(None)
-    ).count()
-    indisponibilites = Indisponibilite.query.count()
+
+    if annee_id is None:
+        affectations = []
+        seances = []
+        affectations_sans_seance = 0
+        matieres_sans_affectation = 0
+        professeurs_sans_affectation = 0
+        indisponibilites = 0
+    else:
+        affectations = Affectation.query.filter_by(id_annee=annee_id).all()
+        seances = Seance.query.filter_by(id_annee=annee_id).all()
+        affectations_sans_seance = Affectation.query.outerjoin(Seance).filter(
+            Affectation.id_annee == annee_id,
+            Seance.id_seance.is_(None)
+        ).count()
+        matieres_sans_affectation = Matiere.query.filter(
+            ~Matiere.affectations.any(Affectation.id_annee == annee_id)
+        ).count()
+        professeurs_sans_affectation = Professeur.query.filter(
+            ~Professeur.affectations.any(Affectation.id_annee == annee_id)
+        ).count()
+        indisponibilites = Indisponibilite.query.filter_by(
+            id_annee=annee_id
+        ).count()
     
     return render_template('index.html',
         annees=annees,
@@ -245,7 +278,7 @@ def affectations():
     ).distinct().order_by(Affectation.semestre).all()]
     types_list = ('CM', 'TD', 'TP')
 
-    annee_id = request.args.get('annee_id', type=int)
+    annee_id, aucune_annee_active = determiner_annee_consultation()
     niveau_id = request.args.get('niveau_id', type=int)
     section_id = request.args.get('section_id', type=int)
     professeur_id = request.args.get('professeur_id', type=int)
@@ -263,7 +296,9 @@ def affectations():
         selectinload(Affectation.seances),
     )
 
-    if annee_id is not None:
+    if aucune_annee_active:
+        query = query.filter(Affectation.id_affectation.is_(None))
+    elif annee_id is not None:
         query = query.filter(Affectation.id_annee == annee_id)
     if niveau_id is not None:
         query = query.join(
@@ -315,6 +350,7 @@ def affectations():
         semestres=semestres_list,
         types_enseignement=types_list,
         annee_id=annee_id,
+        aucune_annee_active=aucune_annee_active,
         niveau_id=niveau_id,
         section_id=section_id,
         professeur_id=professeur_id,
@@ -349,6 +385,80 @@ def annees_universitaires():
         AnneeUniversitaire.date_debut.desc()
     ).all()
     return render_template('annees_universitaires.html', annees=annees_list)
+
+
+@main.route('/annees-universitaires/ajouter', methods=['GET', 'POST'])
+def ajouter_annee_universitaire():
+    """Créer une année universitaire initialement inactive."""
+    if request.method == 'POST':
+        libelle = request.form.get('libelle', '').strip()
+        date_debut_texte = request.form.get('date_debut', '').strip()
+        date_fin_texte = request.form.get('date_fin', '').strip()
+
+        if not libelle or not date_debut_texte or not date_fin_texte:
+            flash('Tous les champs sont obligatoires.', 'danger')
+            return render_template('ajouter_annee_universitaire.html')
+
+        if not re.fullmatch(r'\d{4}-\d{4}', libelle):
+            flash('Le libellé doit respecter le format YYYY-YYYY (exemple : 2026-2027).', 'danger')
+            return render_template('ajouter_annee_universitaire.html')
+
+        if AnneeUniversitaire.query.filter_by(libelle=libelle).first():
+            flash(f'L\'année universitaire {libelle} existe déjà.', 'danger')
+            return render_template('ajouter_annee_universitaire.html')
+
+        try:
+            date_debut = datetime.strptime(date_debut_texte, '%Y-%m-%d').date()
+            date_fin = datetime.strptime(date_fin_texte, '%Y-%m-%d').date()
+        except ValueError:
+            flash('Les dates saisies sont invalides.', 'danger')
+            return render_template('ajouter_annee_universitaire.html')
+
+        if date_debut >= date_fin:
+            flash('La date de début doit être strictement antérieure à la date de fin.', 'danger')
+            return render_template('ajouter_annee_universitaire.html')
+
+        annee = AnneeUniversitaire(
+            libelle=libelle,
+            date_debut=date_debut,
+            date_fin=date_fin,
+            active=False
+        )
+        db.session.add(annee)
+        db.session.commit()
+        flash(f'Année universitaire {libelle} créée avec succès. Elle est inactive.', 'success')
+        return redirect(url_for('main.annees_universitaires'))
+
+    return render_template('ajouter_annee_universitaire.html')
+
+
+@main.route('/annees-universitaires/<int:id_annee>/activer', methods=['POST'])
+def activer_annee_universitaire(id_annee):
+    """Définir une année comme unique année de travail."""
+    annee = AnneeUniversitaire.query.get_or_404(id_annee)
+    etait_deja_active = bool(annee.active)
+
+    try:
+        AnneeUniversitaire.query.update(
+            {AnneeUniversitaire.active: False},
+            synchronize_session=False
+        )
+        AnneeUniversitaire.query.filter_by(id_annee=id_annee).update(
+            {AnneeUniversitaire.active: True},
+            synchronize_session=False
+        )
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        flash('Impossible de modifier l\'année de travail.', 'danger')
+        return redirect(url_for('main.annees_universitaires'))
+
+    if etait_deja_active:
+        flash(f'{annee.libelle} est déjà l\'année de travail.', 'info')
+    else:
+        flash(f'{annee.libelle} est maintenant l\'année de travail.', 'success')
+    return redirect(url_for('main.annees_universitaires'))
+
 
 @main.route('/ajouter_seance', methods=['GET', 'POST'])
 def ajouter_seance():
@@ -703,7 +813,17 @@ def supprimer_seance(id_seance):
 @main.route('/emploi_du_temps')
 def emploi_du_temps():
     """Afficher l'emploi du temps"""
-    seances = Seance.query.all()
+    annees_list = AnneeUniversitaire.query.order_by(
+        AnneeUniversitaire.date_debut.desc()
+    ).all()
+    annee_id, aucune_annee_active = determiner_annee_consultation()
+
+    query = Seance.query
+    if aucune_annee_active:
+        query = query.filter(Seance.id_seance.is_(None))
+    elif annee_id is not None:
+        query = query.filter(Seance.id_annee == annee_id)
+    seances = query.all()
     
     planning = []
     for seance in seances:
@@ -732,7 +852,13 @@ def emploi_du_temps():
     
     planning = sorted(planning, key=lambda x: (list(JOURS.values()).index(x['jour']) if x['jour'] in JOURS.values() else 99, x['debut']))
     
-    return render_template('emploi_du_temps.html', planning=planning)
+    return render_template(
+        'emploi_du_temps.html',
+        planning=planning,
+        annees=annees_list,
+        annee_id=annee_id,
+        aucune_annee_active=aucune_annee_active
+    )
 
 @main.route('/professeurs')
 def professeurs():
@@ -771,10 +897,21 @@ def affectations_professeur(id_professeur):
 def emploi_du_temps_professeur(id_professeur):
     """Afficher l'emploi du temps individuel, sans modifier les séances."""
     professeur = Professeur.query.get_or_404(id_professeur)
-    seances = Seance.query.join(Affectation).filter(
+    annees_disponibles = AnneeUniversitaire.query.order_by(
+        AnneeUniversitaire.date_debut.desc()
+    ).all()
+    annee_id, aucune_annee_active = determiner_annee_consultation()
+
+    query = Seance.query.join(Affectation).filter(
         Affectation.id_professeur == id_professeur,
         Seance.statut != 'ANNULEE'
-    ).options(
+    )
+    if aucune_annee_active:
+        query = query.filter(Seance.id_seance.is_(None))
+    elif annee_id is not None:
+        query = query.filter(Seance.id_annee == annee_id)
+
+    seances = query.options(
         joinedload(Seance.affectation).joinedload(Affectation.annee),
         joinedload(Seance.affectation).joinedload(Affectation.matiere),
         joinedload(Seance.affectation).joinedload(Affectation.section).joinedload(Section.niveau),
@@ -797,7 +934,8 @@ def emploi_du_temps_professeur(id_professeur):
         {seance.creneau for seance in seances},
         key=lambda creneau: (creneau.heure_debut, creneau.heure_fin)
     )
-    annees = sorted({seance.affectation.annee.libelle for seance in seances})
+    annee_selectionnee = (AnneeUniversitaire.query.get(annee_id)
+                          if annee_id and annee_id > 0 else None)
 
     return render_template(
         'emploi_du_temps_professeur.html',
@@ -805,7 +943,10 @@ def emploi_du_temps_professeur(id_professeur):
         seances=seances,
         jours_affiches=jours_affiches,
         creneaux=creneaux,
-        annees=annees
+        annees_disponibles=annees_disponibles,
+        annee_id=annee_id,
+        annee_selectionnee=annee_selectionnee,
+        aucune_annee_active=aucune_annee_active
     )
 
 @main.route('/ajouter_professeur', methods=['GET', 'POST'])
@@ -1483,11 +1624,27 @@ def supprimer_matiere(id_matiere):
 @main.route('/indisponibilites')
 def indisponibilites():
     """Liste des indisponibilités"""
-    indispos = Indisponibilite.query.order_by(
+    annees = AnneeUniversitaire.query.order_by(
+        AnneeUniversitaire.date_debut.desc()
+    ).all()
+    annee_id, aucune_annee_active = determiner_annee_consultation()
+    query = Indisponibilite.query
+    if aucune_annee_active:
+        query = query.filter(Indisponibilite.id_indisponibilite.is_(None))
+    elif annee_id is not None:
+        query = query.filter(Indisponibilite.id_annee == annee_id)
+    indispos = query.order_by(
         Indisponibilite.jour,
         Indisponibilite.id_creneau
     ).all()
-    return render_template('indisponibilites.html', indispos=indispos, JOURS=JOURS)
+    return render_template(
+        'indisponibilites.html',
+        indispos=indispos,
+        annees=annees,
+        annee_id=annee_id,
+        aucune_annee_active=aucune_annee_active,
+        JOURS=JOURS
+    )
 
 
 @main.route('/indisponibilite/ajouter', methods=['GET', 'POST'])
@@ -1510,7 +1667,9 @@ def ajouter_indisponibilite():
 
         if existing:
             flash('⚠️ Cette indisponibilité existe déjà !', 'warning')
-            return redirect(url_for('main.ajouter_indisponibilite'))
+            return redirect(url_for(
+                'main.ajouter_indisponibilite', annee_id=id_annee
+            ))
 
         indispo = Indisponibilite(
             id_annee=id_annee,
@@ -1536,18 +1695,23 @@ def ajouter_indisponibilite():
             )
             prof = Professeur.query.get(id_professeur)
             flash(f'✅ Indisponibilité ajoutée pour {prof.prenom} {prof.nom}', 'success')
-            return redirect(url_for('main.indisponibilites'))
+            return redirect(url_for('main.indisponibilites', annee_id=id_annee))
         except Exception as e:
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
-    annees = AnneeUniversitaire.query.all()
+    annees = AnneeUniversitaire.query.order_by(
+        AnneeUniversitaire.date_debut.desc()
+    ).all()
+    annee_id, aucune_annee_active = determiner_annee_consultation()
     professeurs = Professeur.query.filter_by(actif=True).all()
     creneaux = Creneau.query.order_by(Creneau.ordre).all()
 
     return render_template(
         'ajouter_indisponibilite.html',
         annees=annees,
+        annee_id=annee_id,
+        aucune_annee_active=aucune_annee_active,
         professeurs=professeurs,
         creneaux=creneaux,
         JOURS=JOURS
