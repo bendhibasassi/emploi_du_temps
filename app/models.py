@@ -117,7 +117,7 @@ class Salle(db.Model):
     code_salle = db.Column(db.String(30), unique=True, nullable=False)
     nom_salle = db.Column(db.String(150), nullable=False)
     type_salle = db.Column(db.String(30), nullable=False)
-    capacite = db.Column(db.Integer, nullable=False)
+    capacite = db.Column(db.Integer, nullable=True)
     batiment = db.Column(db.String(150))
     actif = db.Column(db.Boolean, default=True)
     

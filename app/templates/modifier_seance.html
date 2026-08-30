@@ -9,46 +9,67 @@
                 <h4><i class="fas fa-edit"></i> Modifier la séance</h4>
             </div>
             <div class="card-body">
-                <p class="mb-4">
-                    <strong>Cours :</strong>
+                <div class="mb-3">
+                    <label class="form-label">Affectation / cours actuel</label>
                     {% if seance.affectation %}
-                        {{ seance.affectation.professeur.prenom }} {{ seance.affectation.professeur.nom }}
-                        - {{ seance.affectation.matiere.nom_matiere }}
+                        <div class="form-control-plaintext">
+                            {{ seance.affectation.matiere.nom_matiere }} —
+                            {{ seance.affectation.professeur.prenom or '' }} {{ seance.affectation.professeur.nom }} —
+                            {{ seance.affectation.section.niveau.libelle }} / {{ seance.affectation.section.libelle }}{% if seance.affectation.groupe %} / {{ seance.affectation.groupe.code_groupe }}{% endif %}
+                        </div>
                     {% else %}
-                        Séance #{{ seance.id_seance }}
+                        <div class="alert alert-danger">Affectation inexistante pour la séance #{{ seance.id_seance }}</div>
                     {% endif %}
-                </p>
+                </div>
 
                 <form method="POST">
                     <div class="mb-3">
-                        <label for="jour" class="form-label">Jour</label>
-                        <select name="jour" id="jour" class="form-select" required>
-                            {% for key, value in JOURS.items() %}
-                                <option value="{{ key }}" {% if seance.jour == key %}selected{% endif %}>{{ value }}</option>
-                            {% endfor %}
-                        </select>
+                        <label class="form-label">Type de séance</label>
+                        <div class="form-control-plaintext">{{ seance.affectation.type_enseignement if seance.affectation else 'Inconnu' }}</div>
                     </div>
 
                     <div class="mb-3">
-                        <label for="id_creneau" class="form-label">Créneau horaire</label>
-                        <select name="id_creneau" id="id_creneau" class="form-select" required>
-                            {% for creneau in creneaux %}
-                                <option value="{{ creneau.id_creneau }}" {% if seance.id_creneau == creneau.id_creneau %}selected{% endif %}>
-                                    {{ creneau.heure_debut }} - {{ creneau.heure_fin }}
-                                </option>
-                            {% endfor %}
+                        <label for="semaine_type" class="form-label">Semaine</label>
+                        <select name="semaine_type" id="semaine_type" class="form-select" required>
+                            <option value="TOUTES" {% if seance.semaine_type == 'TOUTES' %}selected{% endif %}>Toutes les semaines</option>
+                            <option value="PAIRE" {% if seance.semaine_type == 'PAIRE' %}selected{% endif %}>Semaines paires</option>
+                            <option value="IMPAIRE" {% if seance.semaine_type == 'IMPAIRE' %}selected{% endif %}>Semaines impaires</option>
                         </select>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="jour" class="form-label">Jour</label>
+                            <select name="jour" id="jour" class="form-select" required>
+                                {% for key, value in JOURS.items() %}
+                                    <option value="{{ key }}" {% if seance.jour == key %}selected{% endif %}>{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="id_creneau" class="form-label">Créneau horaire</label>
+                            <select name="id_creneau" id="id_creneau" class="form-select" required>
+                                {% for creneau in creneaux %}
+                                    <option value="{{ creneau.id_creneau }}" data-horaire="{{ creneau.heure_debut.strftime('%H:%M') }} → {{ creneau.heure_fin.strftime('%H:%M') }}" {% if seance.id_creneau == creneau.id_creneau %}selected{% endif %}>
+                                        {{ creneau.heure_debut.strftime('%H:%M') }} → {{ creneau.heure_fin.strftime('%H:%M') }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div id="creneau_resume" class="form-text mb-3"></div>
                     </div>
 
                     <div class="mb-4">
                         <label for="id_salle" class="form-label">Salle</label>
                         <select name="id_salle" id="id_salle" class="form-select" required>
                             {% for salle in salles %}
-                                <option value="{{ salle.id_salle }}" {% if seance.id_salle == salle.id_salle %}selected{% endif %}>
-                                    {{ salle.nom_salle }} ({{ salle.capacite }} places)
+                                <option value="{{ salle.id_salle }}" data-capacite-inconnue="{{ '1' if salle.capacite is none else '0' }}" {% if seance.id_salle == salle.id_salle %}selected{% endif %}>
+                                    {{ salle.code_salle }} — {{ salle.nom_salle }} — {{ salle.type_salle }} — {% if salle.capacite is not none %}{{ salle.capacite }} places{% else %}capacité non renseignée{% endif %}
                                 </option>
                             {% endfor %}
                         </select>
+                        <div class="form-text">Seules les salles actives sont proposées, sauf la salle actuellement utilisée par cette séance.</div>
+                        <div id="capacite_inconnue" class="form-text text-warning d-none">Capacité non renseignée — vérification manuelle conseillée.</div>
                     </div>
 
                     <div class="d-flex justify-content-between gap-2">
@@ -64,4 +85,30 @@
         </div>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const jour = document.getElementById('jour');
+    const creneau = document.getElementById('id_creneau');
+    const salle = document.getElementById('id_salle');
+    const resume = document.getElementById('creneau_resume');
+    const capaciteInconnue = document.getElementById('capacite_inconnue');
+
+    function actualiserCreneau() {
+        const libelleJour = jour.selectedOptions[0]?.textContent || '';
+        const horaire = creneau.selectedOptions[0]?.dataset.horaire || '';
+        resume.textContent = libelleJour && horaire ? `${libelleJour} — ${horaire}` : '';
+    }
+
+    function actualiserAvertissementCapacite() {
+        const inconnue = salle.selectedOptions[0]?.dataset.capaciteInconnue === '1';
+        capaciteInconnue.classList.toggle('d-none', !inconnue);
+    }
+
+    jour.addEventListener('change', actualiserCreneau);
+    creneau.addEventListener('change', actualiserCreneau);
+    salle.addEventListener('change', actualiserAvertissementCapacite);
+    actualiserCreneau();
+    actualiserAvertissementCapacite();
+});
+</script>
 {% endblock %}

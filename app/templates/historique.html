@@ -2,16 +2,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-12">
-        <div class="d-flex justify-content-between align-items-center">
-            <h1><i class="fas fa-history"></i> Historique des modifications</h1>
-            <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
-                <i class="fas fa-home"></i> Accueil
-            </a>
-        </div>
-        <hr>
-
+<div class="page-heading">
+    <div>
+        <h1>Historique</h1>
+        <p>Traçabilité des modifications de l'application.</p>
         <div class="alert alert-info">
             <i class="fas fa-info-circle"></i>
             Toutes les actions (ajout, modification, suppression) sont tracées ici.

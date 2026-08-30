@@ -1,16 +1,32 @@
 # app/routes.py
 import io
 import hashlib
+import re
 
 import pandas as pd
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
 from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
 from app import db
 from app.models import (
     Professeur, Matiere, Niveau, Section, Groupe, Salle, Creneau,
     Affectation, Seance, AnneeUniversitaire, Indisponibilite, Historique
 )
 from datetime import datetime
+
+
+CODES_AMPHIS = ('A0', 'A1', 'A2', 'A3', 'BIO1', 'BIO2')
+CODES_GRANDES_SALLES = (
+    'DSP1', 'DSP2', 'DSP3', 'DSP4', 'DSP5', 'DSP6', 'DSP7',
+    'DSP22', 'DSP23', 'DSP24'
+)
+CODES_PETITES_SALLES = tuple(f'DSP{numero}' for numero in range(8, 22))
+
+REFERENTIEL_SALLES = {
+    **{code: (f'Amphithéâtre {code}', 'AMPHI') for code in CODES_AMPHIS},
+    **{code: (code, 'GRANDE_SALLE') for code in CODES_GRANDES_SALLES},
+    **{code: (code, 'PETITE_SALLE') for code in CODES_PETITES_SALLES},
+}
 
 
 def ajouter_historique(utilisateur, action, type_objet, id_objet,
@@ -75,9 +91,60 @@ def verifier_capacite_salle(affectation, id_salle):
               if affectation.type_enseignement == 'CM'
               else Groupe.query.get(affectation.id_groupe))
 
-    if salle and public and public.effectif is not None and salle.capacite < public.effectif:
+    if (salle and salle.capacite is not None and public
+            and public.effectif is not None
+            and salle.capacite < public.effectif):
         return salle, public.effectif
     return None
+
+
+def convertir_capacite_salle(valeur):
+    """Convertit une capacité facultative ou lève une erreur de validation."""
+    valeur = (valeur or '').strip()
+    if not valeur:
+        return None
+
+    try:
+        capacite = int(valeur)
+    except ValueError as exc:
+        raise ValueError('La capacité doit être un nombre entier.') from exc
+
+    if capacite < 1:
+        raise ValueError('La capacité doit être supérieure à 0.')
+
+    return capacite
+
+
+def cle_tri_naturel_salle(salle):
+    """Trie les codes de salles par blocs de texte et de chiffres."""
+    return tuple(
+        (0, int(part)) if part.isdigit() else (1, part.casefold())
+        for part in re.split(r'(\d+)', salle.code_salle)
+        if part
+    )
+
+
+def cle_priorite_salle(salle, type_enseignement):
+    """Place les types conseillés en premier sans exclure aucune salle."""
+    if salle.code_salle not in REFERENTIEL_SALLES:
+        priorite = 3
+    elif type_enseignement == 'CM':
+        priorite = {'AMPHI': 0, 'GRANDE_SALLE': 1, 'PETITE_SALLE': 2}.get(
+            salle.type_salle, 3
+        )
+    else:
+        priorite = {'PETITE_SALLE': 0, 'GRANDE_SALLE': 1, 'AMPHI': 2}.get(
+            salle.type_salle, 3
+        )
+    return priorite, cle_tri_naturel_salle(salle)
+
+
+def codes_salles_officielles_disponibles():
+    """Retourne les codes officiels qui ne sont pas encore enregistrés."""
+    codes_utilises = {
+        code for code, in db.session.query(Salle.code_salle).all()
+    }
+    return [code for code in REFERENTIEL_SALLES if code not in codes_utilises]
 
 main = Blueprint('main', __name__)
 
@@ -116,22 +183,113 @@ def verifier_indisponibilite(session, id_annee, id_professeur, jour, id_creneau)
 
 @main.route('/')
 def index():
-    """Page d'accueil"""
+    """Tableau de bord"""
     annees = AnneeUniversitaire.query.all()
+    annee_active = AnneeUniversitaire.query.filter_by(active=True).first()
     professeurs = Professeur.query.all()
     matieres = Matiere.query.all()
     sections = Section.query.all()
+    groupes = Groupe.query.all()
+    affectations = Affectation.query.all()
     salles = Salle.query.all()
     seances = Seance.query.all()
+    affectations_sans_seance = Affectation.query.outerjoin(Seance).filter(
+        Seance.id_seance.is_(None)
+    ).count()
+    matieres_sans_affectation = Matiere.query.outerjoin(Affectation).filter(
+        Affectation.id_affectation.is_(None)
+    ).count()
+    professeurs_sans_affectation = Professeur.query.outerjoin(Affectation).filter(
+        Affectation.id_affectation.is_(None)
+    ).count()
+    indisponibilites = Indisponibilite.query.count()
     
     return render_template('index.html',
         annees=annees,
         professeurs=professeurs,
         matieres=matieres,
         sections=sections,
+        groupes=groupes,
+        affectations=affectations,
         salles=salles,
-        seances=seances
+        seances=seances,
+        annee_active=annee_active,
+        affectations_sans_seance=affectations_sans_seance,
+        matieres_sans_affectation=matieres_sans_affectation,
+        professeurs_sans_affectation=professeurs_sans_affectation,
+        indisponibilites=indisponibilites
     )
+
+
+@main.route('/affectations')
+def affectations():
+    """Consulter les affectations pédagogiques existantes."""
+    professeurs_list = Professeur.query.order_by(
+        Professeur.nom,
+        Professeur.prenom
+    ).all()
+    professeur_id_brut = request.args.get('professeur_id', '').strip()
+    professeur_selectionne = None
+
+    query = Affectation.query.options(
+        joinedload(Affectation.annee),
+        joinedload(Affectation.professeur),
+        joinedload(Affectation.matiere),
+        joinedload(Affectation.section).joinedload(Section.niveau),
+        joinedload(Affectation.groupe),
+    )
+
+    if professeur_id_brut:
+        try:
+            professeur_id = int(professeur_id_brut)
+        except ValueError:
+            flash('❌ Filtre professeur invalide.', 'danger')
+        else:
+            professeur_selectionne = Professeur.query.get(professeur_id)
+            if professeur_selectionne is None:
+                flash('❌ Professeur inexistant.', 'danger')
+            else:
+                query = query.filter(Affectation.id_professeur == professeur_id)
+
+    affectations_list = query.order_by(
+        Affectation.id_annee,
+        Affectation.id_section,
+        Affectation.type_enseignement,
+        Affectation.id_groupe
+    ).all()
+    return render_template(
+        'affectations.html',
+        affectations=affectations_list,
+        professeurs=professeurs_list,
+        professeur_selectionne=professeur_selectionne
+    )
+
+
+@main.route('/niveaux-sections')
+def niveaux_sections():
+    """Consulter la hiérarchie des niveaux, sections et groupes."""
+    niveaux_list = Niveau.query.order_by(
+        Niveau.cycle,
+        Niveau.annee_etude,
+        Niveau.code_niveau
+    ).all()
+    return render_template('niveaux_sections.html', niveaux=niveaux_list)
+
+
+@main.route('/creneaux')
+def creneaux():
+    """Consulter les créneaux horaires configurés."""
+    creneaux_list = Creneau.query.order_by(Creneau.ordre).all()
+    return render_template('creneaux.html', creneaux=creneaux_list)
+
+
+@main.route('/annees-universitaires')
+def annees_universitaires():
+    """Consulter les années universitaires configurées."""
+    annees_list = AnneeUniversitaire.query.order_by(
+        AnneeUniversitaire.date_debut.desc()
+    ).all()
+    return render_template('annees_universitaires.html', annees=annees_list)
 
 @main.route('/ajouter_seance', methods=['GET', 'POST'])
 def ajouter_seance():
@@ -147,8 +305,29 @@ def ajouter_seance():
         conflits = []
 
         # Vérifier que tous les champs sont remplis
-        if not all([id_affectation, jour, id_creneau, id_salle]):
+        if not id_salle:
+            flash('❌ Salle invalide ou non sélectionnée !', 'danger')
+            return redirect(url_for('main.ajouter_seance'))
+
+        if not all([id_affectation, jour, id_creneau]):
             flash('❌ Tous les champs sont obligatoires !', 'danger')
+            return redirect(url_for('main.ajouter_seance'))
+
+        if jour not in JOURS:
+            flash('❌ Jour invalide !', 'danger')
+            return redirect(url_for('main.ajouter_seance'))
+
+        if Creneau.query.get(id_creneau) is None:
+            flash('❌ Créneau invalide ou inexistant !', 'danger')
+            return redirect(url_for('main.ajouter_seance'))
+
+        if semaine_type not in {'TOUTES', 'PAIRE', 'IMPAIRE'}:
+            flash('❌ Type de semaine invalide !', 'danger')
+            return redirect(url_for('main.ajouter_seance'))
+
+        salle_choisie = Salle.query.get(id_salle)
+        if salle_choisie is None or not salle_choisie.actif:
+            flash('❌ Salle invalide, inexistante ou inactive !', 'danger')
             return redirect(url_for('main.ajouter_seance'))
 
         affectation = Affectation.query.get(id_affectation)
@@ -258,31 +437,65 @@ def ajouter_seance():
         Affectation.type_enseignement,
         Affectation.id_groupe
     ).all()
+    professeurs = Professeur.query.order_by(
+        Professeur.nom,
+        Professeur.prenom
+    ).all()
     creneaux = Creneau.query.order_by(Creneau.ordre).all()
-    salles = Salle.query.filter_by(actif=True).all()
+    salles = sorted(Salle.query.filter_by(actif=True).all(), key=cle_tri_naturel_salle)
 
     return render_template('ajouter_seance.html',
         affectations=affectations,
+        professeurs=professeurs,
         creneaux=creneaux,
         salles=salles,
         JOURS=JOURS
     )
 
 
-def verifier_conflits_seance(seance, jour, id_creneau, id_salle):
+def verifier_conflits_seance(seance, jour, id_creneau, id_salle,
+                             semaine_type=None):
     """Vérifie les conflits d'une séance, en excluant la séance modifiée."""
     conflits = []
+    semaine_type = semaine_type or seance.semaine_type
 
-    salle_occupee = filtrer_semaines_compatibles(Seance.query.filter(
-        Seance.id_seance != seance.id_seance,
-        Seance.id_annee == seance.id_annee,
-        Seance.jour == jour,
-        Seance.id_creneau == id_creneau,
-        Seance.id_salle == id_salle,
-        Seance.statut != 'ANNULEE'
-    ), seance.semaine_type).first()
+    creneau_demande = Creneau.query.get(id_creneau)
+    salle_occupee = None
+    if creneau_demande:
+        salle_occupee = filtrer_semaines_compatibles(
+            Seance.query.join(
+                Creneau, Seance.id_creneau == Creneau.id_creneau
+            ).filter(
+                Seance.id_seance != seance.id_seance,
+                Seance.id_annee == seance.id_annee,
+                Seance.jour == jour,
+                Seance.id_salle == id_salle,
+                Seance.statut != 'ANNULEE',
+                Creneau.heure_debut < creneau_demande.heure_fin,
+                Creneau.heure_fin > creneau_demande.heure_debut
+            ), semaine_type
+        ).options(
+            joinedload(Seance.salle),
+            joinedload(Seance.creneau),
+            joinedload(Seance.affectation).joinedload(Affectation.matiere),
+            joinedload(Seance.affectation).joinedload(Affectation.professeur),
+            joinedload(Seance.affectation).joinedload(Affectation.section),
+            joinedload(Seance.affectation).joinedload(Affectation.groupe)
+        ).first()
     if salle_occupee:
-        conflits.append('Cette salle est déjà occupée à ce créneau.')
+        affectation_conflit = salle_occupee.affectation
+        public = affectation_conflit.section.libelle
+        if affectation_conflit.groupe:
+            public += f' / {affectation_conflit.groupe.code_groupe}'
+        conflits.append(
+            f'Conflit de salle : {salle_occupee.salle.code_salle} est déjà '
+            f'occupée le {JOURS[jour].lower()} de '
+            f'{salle_occupee.creneau.heure_debut.strftime("%H:%M")} à '
+            f'{salle_occupee.creneau.heure_fin.strftime("%H:%M")} '
+            f'({affectation_conflit.matiere.nom_matiere} — '
+            f'{affectation_conflit.professeur.prenom or ""} '
+            f'{affectation_conflit.professeur.nom} — {public}).'
+        )
 
     affectation = Affectation.query.get(seance.id_affectation)
     if affectation:
@@ -293,7 +506,7 @@ def verifier_conflits_seance(seance, jour, id_creneau, id_salle):
             Seance.id_creneau == id_creneau,
             Affectation.id_professeur == affectation.id_professeur,
             Seance.statut != 'ANNULEE'
-        ), seance.semaine_type).first()
+        ), semaine_type).first()
         if professeur_occupe:
             conflits.append('Le professeur est déjà occupé à ce créneau.')
 
@@ -304,7 +517,7 @@ def verifier_conflits_seance(seance, jour, id_creneau, id_salle):
             Seance.jour == jour,
             Seance.id_creneau == id_creneau,
             Seance.statut != 'ANNULEE'
-        ), seance.semaine_type), affectation)
+        ), semaine_type), affectation)
         if conflit_etudiants:
             public = 'La section' if affectation.type_enseignement == 'CM' else 'Le groupe'
             conflits.append(f'{public} est déjà occupé à ce créneau.')
@@ -329,20 +542,45 @@ def modifier_seance(id_seance):
         jour = request.form.get('jour', type=int)
         id_creneau = request.form.get('id_creneau', type=int)
         id_salle = request.form.get('id_salle', type=int)
+        semaine_type = request.form.get('semaine_type', '')
 
-        if jour not in JOURS or not Creneau.query.get(id_creneau) or not Salle.query.get(id_salle):
+        if Affectation.query.get(seance.id_affectation) is None:
+            flash('❌ Affectation invalide ou inexistante.', 'danger')
+            return redirect(url_for('main.modifier_seance', id_seance=id_seance))
+
+        if semaine_type not in {'TOUTES', 'PAIRE', 'IMPAIRE'}:
+            flash('❌ Type de semaine invalide.', 'danger')
+            return redirect(url_for('main.modifier_seance', id_seance=id_seance))
+
+        salle_choisie = Salle.query.get(id_salle) if id_salle else None
+        salle_autorisee = (salle_choisie is not None and
+                           (salle_choisie.actif or id_salle == seance.id_salle))
+        if jour not in JOURS or not Creneau.query.get(id_creneau) or not salle_autorisee:
             flash('❌ Jour, créneau ou salle invalide.', 'danger')
             return redirect(url_for('main.modifier_seance', id_seance=id_seance))
 
-        conflits = verifier_conflits_seance(seance, jour, id_creneau, id_salle)
+        conflits = verifier_conflits_seance(
+            seance, jour, id_creneau, id_salle, semaine_type
+        )
         if conflits:
             flash('❌ ' + ' '.join(conflits), 'danger')
+            return redirect(url_for('main.modifier_seance', id_seance=id_seance))
+
+        conflit_capacite = verifier_capacite_salle(seance.affectation, id_salle)
+        if conflit_capacite:
+            salle, effectif = conflit_capacite
+            flash(
+                f'❌ Capacité insuffisante : {salle.nom_salle} '
+                f'({salle.capacite} places) pour {effectif} étudiants.',
+                'danger'
+            )
             return redirect(url_for('main.modifier_seance', id_seance=id_seance))
 
         try:
             seance.jour = jour
             seance.id_creneau = id_creneau
             seance.id_salle = id_salle
+            seance.semaine_type = semaine_type
             nouvelle_valeur = f"Jour: {seance.jour}, Créneau: {seance.id_creneau}, Salle: {seance.id_salle}"
             db.session.commit()
             ajouter_historique(
@@ -361,7 +599,16 @@ def modifier_seance(id_seance):
             flash(f'❌ Erreur lors de la modification : {e}', 'danger')
 
     creneaux = Creneau.query.order_by(Creneau.ordre).all()
-    salles = Salle.query.order_by(Salle.nom_salle).all()
+    salles = Salle.query.filter(or_(
+        Salle.actif.is_(True),
+        Salle.id_salle == seance.id_salle
+    )).all()
+    type_enseignement = (seance.affectation.type_enseignement
+                         if seance.affectation else '')
+    salles = sorted(
+        salles,
+        key=lambda salle: cle_priorite_salle(salle, type_enseignement)
+    )
     return render_template(
         'modifier_seance.html',
         seance=seance,
@@ -414,11 +661,14 @@ def emploi_du_temps():
                 'prof': f"{prof.prenom} {prof.nom}" if prof else "Inconnu",
                 'matiere': matiere.nom_matiere if matiere else "Inconnu",
                 'section': section.libelle if section else "Inconnu",
+                'groupe': affectation.groupe.code_groupe if affectation.groupe else None,
+                'type_enseignement': affectation.type_enseignement,
                 'jour': JOURS.get(seance.jour, "Inconnu"),
                 'debut': creneau.heure_debut.strftime('%H:%M') if creneau else "???",
                 'fin': creneau.heure_fin.strftime('%H:%M') if creneau else "???",
                 'salle': salle.nom_salle if salle else "Inconnu",
-                'capacite': salle.capacite if salle else 0
+                'capacite': salle.capacite if salle else 0,
+                'semaine_type': seance.semaine_type
             })
     
     planning = sorted(planning, key=lambda x: (list(JOURS.values()).index(x['jour']) if x['jour'] in JOURS.values() else 99, x['debut']))
@@ -430,6 +680,74 @@ def professeurs():
     """Lister les professeurs"""
     professeurs = Professeur.query.all()
     return render_template('professeurs.html', professeurs=professeurs)
+
+
+@main.route('/professeurs/<int:id_professeur>/affectations')
+def affectations_professeur(id_professeur):
+    """Consulter les affectations d'un professeur."""
+    professeur = Professeur.query.get_or_404(id_professeur)
+    affectations_list = Affectation.query.filter_by(
+        id_professeur=id_professeur
+    ).options(
+        joinedload(Affectation.annee),
+        joinedload(Affectation.matiere),
+        joinedload(Affectation.section).joinedload(Section.niveau),
+        joinedload(Affectation.groupe),
+    ).order_by(
+        Affectation.id_annee,
+        Affectation.id_section,
+        Affectation.semestre,
+        Affectation.type_enseignement,
+        Affectation.id_groupe
+    ).all()
+
+    return render_template(
+        'affectations_professeur.html',
+        professeur=professeur,
+        affectations=affectations_list
+    )
+
+
+@main.route('/professeurs/<int:id_professeur>/emploi-du-temps')
+def emploi_du_temps_professeur(id_professeur):
+    """Afficher l'emploi du temps individuel, sans modifier les séances."""
+    professeur = Professeur.query.get_or_404(id_professeur)
+    seances = Seance.query.join(Affectation).filter(
+        Affectation.id_professeur == id_professeur,
+        Seance.statut != 'ANNULEE'
+    ).options(
+        joinedload(Seance.affectation).joinedload(Affectation.annee),
+        joinedload(Seance.affectation).joinedload(Affectation.matiere),
+        joinedload(Seance.affectation).joinedload(Affectation.section).joinedload(Section.niveau),
+        joinedload(Seance.affectation).joinedload(Affectation.groupe),
+        joinedload(Seance.salle),
+        joinedload(Seance.creneau),
+    ).join(Creneau, Seance.id_creneau == Creneau.id_creneau).order_by(
+        Seance.jour,
+        Creneau.heure_debut,
+        Creneau.heure_fin,
+        Seance.semaine_type
+    ).all()
+
+    jours_utilises = {seance.jour for seance in seances}
+    jours_affiches = [
+        (numero, libelle) for numero, libelle in JOURS.items()
+        if numero <= 4 or numero in jours_utilises
+    ]
+    creneaux = sorted(
+        {seance.creneau for seance in seances},
+        key=lambda creneau: (creneau.heure_debut, creneau.heure_fin)
+    )
+    annees = sorted({seance.affectation.annee.libelle for seance in seances})
+
+    return render_template(
+        'emploi_du_temps_professeur.html',
+        professeur=professeur,
+        seances=seances,
+        jours_affiches=jours_affiches,
+        creneaux=creneaux,
+        annees=annees
+    )
 
 @main.route('/ajouter_professeur', methods=['GET', 'POST'])
 def ajouter_professeur():
@@ -605,17 +923,19 @@ def ajouter_salle():
     """Ajouter une salle"""
     if request.method == 'POST':
         code_salle = request.form.get('code_salle', '').strip()
-        nom_salle = request.form.get('nom_salle', '').strip()
-        type_salle = request.form.get('type_salle', '').strip()
-        capacite = request.form.get('capacite', type=int)
         batiment = request.form.get('batiment', '').strip()
 
-        if not code_salle or not nom_salle or not capacite:
-            flash('❌ Les champs Code, Nom et Capacité sont obligatoires !', 'danger')
+        definition_salle = REFERENTIEL_SALLES.get(code_salle)
+        if definition_salle is None:
+            flash('❌ Code de salle invalide !', 'danger')
             return redirect(url_for('main.ajouter_salle'))
 
-        if capacite < 1:
-            flash('❌ La capacité doit être supérieure à 0 !', 'danger')
+        nom_salle, type_salle = definition_salle
+
+        try:
+            capacite = convertir_capacite_salle(request.form.get('capacite'))
+        except ValueError as exc:
+            flash(f'❌ {exc}', 'danger')
             return redirect(url_for('main.ajouter_salle'))
 
         existing = Salle.query.filter_by(code_salle=code_salle).first()
@@ -649,7 +969,10 @@ def ajouter_salle():
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
-    return render_template('ajouter_salle.html')
+    return render_template(
+        'ajouter_salle.html',
+        codes_salles=codes_salles_officielles_disponibles()
+    )
 
 
 @main.route('/salle/<int:id_salle>/modifier', methods=['GET', 'POST'])
@@ -660,10 +983,35 @@ def modifier_salle(id_salle):
     if request.method == 'POST':
         ancienne_valeur = f"Code: {salle.code_salle}, Nom: {salle.nom_salle}, Capacité: {salle.capacite}"
 
-        salle.code_salle = request.form.get('code_salle', salle.code_salle).strip()
-        salle.nom_salle = request.form.get('nom_salle', salle.nom_salle).strip()
-        salle.type_salle = request.form.get('type_salle', salle.type_salle).strip()
-        salle.capacite = request.form.get('capacite', type=int) or salle.capacite
+        try:
+            capacite = convertir_capacite_salle(request.form.get('capacite'))
+        except ValueError as exc:
+            flash(f'❌ {exc}', 'danger')
+            return redirect(url_for('main.modifier_salle', id_salle=id_salle))
+
+        definition_salle = REFERENTIEL_SALLES.get(salle.code_salle)
+        if definition_salle is None:
+            nouveau_code = request.form.get('code_salle', '').strip()
+            if nouveau_code:
+                definition_salle = REFERENTIEL_SALLES.get(nouveau_code)
+                code_deja_utilise = Salle.query.filter(
+                    Salle.code_salle == nouveau_code,
+                    Salle.id_salle != salle.id_salle
+                ).first()
+                if definition_salle is None or code_deja_utilise:
+                    flash('❌ Code de salle invalide ou déjà utilisé !', 'danger')
+                    return redirect(url_for('main.modifier_salle', id_salle=id_salle))
+
+                salle.code_salle = nouveau_code
+                salle.nom_salle, salle.type_salle = definition_salle
+        else:
+            code_soumis = request.form.get('code_salle', '').strip()
+            if code_soumis and code_soumis != salle.code_salle:
+                flash('❌ Le code d’une salle officielle ne peut pas être modifié !', 'danger')
+                return redirect(url_for('main.modifier_salle', id_salle=id_salle))
+            salle.nom_salle, salle.type_salle = definition_salle
+
+        salle.capacite = capacite
         salle.batiment = request.form.get('batiment', '').strip() or None
         salle.actif = request.form.get('actif') == 'on'
 
@@ -685,7 +1033,12 @@ def modifier_salle(id_salle):
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
-    return render_template('modifier_salle.html', salle=salle)
+    return render_template(
+        'modifier_salle.html',
+        salle=salle,
+        code_officiel=salle.code_salle in REFERENTIEL_SALLES,
+        codes_salles=codes_salles_officielles_disponibles()
+    )
 
 
 @main.route('/salle/<int:id_salle>/supprimer', methods=['POST'])

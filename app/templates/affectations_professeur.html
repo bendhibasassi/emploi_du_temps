@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Affectations de {{ professeur.prenom or '' }} {{ professeur.nom }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>Affectations de {{ professeur.prenom or '' }} {{ professeur.nom }}</h1>
+        <p>{{ affectations|length }} affectation(s)</p>
+    </div>
+    <a href="{{ url_for('main.professeurs') }}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Retour aux professeurs
+    </a>
+</div>
+
+{% if affectations %}
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Matière</th>
+                <th>Niveau</th>
+                <th>Section</th>
+                <th>Groupe</th>
+                <th>Type</th>
+                <th>Semestre</th>
+                <th>Statut</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for affectation in affectations %}
+            <tr>
+                <td><strong>{{ affectation.matiere.nom_matiere }}</strong><br><small class="text-muted">{{ affectation.matiere.code_matiere }}</small></td>
+                <td>{{ affectation.section.niveau.libelle }}</td>
+                <td>{{ affectation.section.libelle }}</td>
+                <td>{% if affectation.groupe %}{{ affectation.groupe.code_groupe }} — {{ affectation.groupe.nom_groupe }}{% else %}—{% endif %}</td>
+                <td><span class="badge teaching-type type-{{ affectation.type_enseignement|lower }}">{{ affectation.type_enseignement }}</span></td>
+                <td>S{{ affectation.semestre }}</td>
+                <td><span class="badge {% if affectation.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Active' if affectation.actif else 'Inactive' }}</span></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">Aucune affectation pour ce professeur.</div>
+{% endif %}
+{% endblock %}

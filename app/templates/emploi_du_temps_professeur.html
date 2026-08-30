@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Emploi du temps de {{ professeur.prenom or '' }} {{ professeur.nom }}{% endblock %}
+
+{% block content %}
+<style>
+    .professor-schedule th { text-align: center; }
+    .professor-schedule .time-cell { min-width: 105px; white-space: nowrap; font-weight: 700; }
+    .professor-schedule .day-cell { min-width: 190px; vertical-align: top; }
+    .schedule-entry { margin-bottom: .5rem; padding: .65rem; border: 1px solid #d8e0ea; border-left: 4px solid #173f73; border-radius: 8px; background: #fff; }
+    .schedule-entry:last-child { margin-bottom: 0; }
+    .schedule-entry p { margin: .15rem 0; font-size: .85rem; }
+    .week-paire { border-left-color: #6f42c1; }
+    .week-impaire { border-left-color: #0f7c83; }
+    .print-heading { display: none; }
+    @media print {
+        @page { size: landscape; margin: 10mm; }
+        .app-sidebar, .app-header, .app-footer, .sidebar-backdrop, .no-print, .flash-messages { display: none !important; }
+        .app-shell { margin: 0 !important; }
+        .app-main { max-width: none !important; padding: 0 !important; }
+        .print-heading { display: block; margin-bottom: 1rem; }
+        .screen-heading { display: none !important; }
+        .table-responsive { overflow: visible !important; border: 0; box-shadow: none; }
+        .professor-schedule { width: 100%; table-layout: fixed; font-size: 9pt; }
+        .professor-schedule th, .professor-schedule td { padding: 5px !important; }
+        .schedule-entry { break-inside: avoid; page-break-inside: avoid; box-shadow: none; }
+    }
+</style>
+
+<header class="print-heading">
+    <div><strong>Emploi du temps</strong></div>
+    <div>Professeur : {{ professeur.prenom or '' }} {{ professeur.nom }}</div>
+    <div>Année universitaire : {{ annees|join(', ') if annees else 'Non renseignée' }}</div>
+</header>
+
+<div class="page-heading screen-heading">
+    <div>
+        <h1>Emploi du temps de {{ professeur.prenom or '' }} {{ professeur.nom }}</h1>
+        <p>Année universitaire : {{ annees|join(', ') if annees else 'Non renseignée' }}</p>
+    </div>
+    <div class="page-actions no-print">
+        <button type="button" class="btn btn-primary" onclick="window.print()">
+            <i class="fas fa-print"></i> Imprimer
+        </button>
+        <a href="{{ url_for('main.professeurs') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Retour aux professeurs
+        </a>
+    </div>
+</div>
+
+{% if seances %}
+<div class="table-responsive">
+    <table class="table table-bordered professor-schedule">
+        <thead>
+            <tr>
+                <th>Horaire</th>
+                {% for numero, libelle in jours_affiches %}<th>{{ libelle }}</th>{% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for creneau in creneaux %}
+            <tr>
+                <td class="time-cell">{{ creneau.heure_debut.strftime('%H:%M') }} → {{ creneau.heure_fin.strftime('%H:%M') }}</td>
+                {% for numero, libelle in jours_affiches %}
+                <td class="day-cell">
+                    {% for seance in seances if seance.jour == numero and seance.id_creneau == creneau.id_creneau %}
+                    {% set affectation = seance.affectation %}
+                    <article class="schedule-entry week-{{ seance.semaine_type|lower }}">
+                        <strong>{{ affectation.matiere.nom_matiere }}</strong>
+                        <p><span class="badge teaching-type type-{{ affectation.type_enseignement|lower }}">{{ affectation.type_enseignement }}</span> · {{ seance.semaine_type }}</p>
+                        <p>{{ affectation.section.niveau.libelle }} / {{ affectation.section.libelle }}{% if affectation.groupe %} / {{ affectation.groupe.code_groupe }}{% else %} / —{% endif %}</p>
+                        <p><i class="fas fa-door-open"></i> {{ seance.salle.code_salle }}</p>
+                    </article>
+                    {% endfor %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">Aucune séance programmée pour ce professeur.</div>
+{% endif %}
+{% endblock %}

@@ -10,18 +10,30 @@
             </div>
             <div class="card-body">
                 <form method="POST">
+                    <!-- === FILTRE PROFESSEUR === -->
+                    <div class="mb-3">
+                        <label for="professeur_filter" class="form-label">Professeur</label>
+                        <select id="professeur_filter" class="form-select">
+                            <option value="">Tous les professeurs</option>
+                            {% for professeur in professeurs %}
+                                <option value="{{ professeur.id_professeur }}">
+                                    {{ professeur.prenom or '' }} {{ professeur.nom }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
                     <!-- === AFFECTATION === -->
                     <div class="mb-3">
                         <label for="id_affectation" class="form-label">Affectation</label>
                         <select name="id_affectation" id="id_affectation" class="form-select" required>
                             <option value="">Sélectionner une affectation...</option>
                             {% for affectation in affectations %}
-                                <option value="{{ affectation.id_affectation }}">
-                                    {{ affectation.annee.libelle }} —
-                                    {{ affectation.professeur.prenom or '' }} {{ affectation.professeur.nom }} —
+                                <option value="{{ affectation.id_affectation }}" data-professeur-id="{{ affectation.id_professeur }}" data-enseignement="{{ affectation.type_enseignement }}">
                                     {{ affectation.matiere.nom_matiere }} —
-                                    {{ affectation.section.libelle }} —
-                                    {{ affectation.type_enseignement }}{% if affectation.groupe %} ({{ affectation.groupe.code_groupe }} - {{ affectation.groupe.nom_groupe }}){% endif %}
+                                    {{ affectation.professeur.prenom or '' }} {{ affectation.professeur.nom }} —
+                                    {{ affectation.section.niveau.libelle }} / {{ affectation.section.libelle }}{% if affectation.groupe %} / {{ affectation.groupe.code_groupe }}{% endif %} —
+                                    {{ affectation.type_enseignement }} — {{ affectation.annee.libelle }}
                                 </option>
                             {% endfor %}
                         </select>
@@ -31,26 +43,45 @@
                         </div>
                     </div>
 
-                    <!-- === JOUR === -->
+                    <!-- === TYPE DE SÉANCE === -->
                     <div class="mb-3">
-                        <label for="jour" class="form-label">Jour</label>
-                        <select name="jour" id="jour" class="form-select" required>
-                            <option value="">Sélectionner...</option>
-                            {% for key, value in JOURS.items() %}
-                                <option value="{{ key }}">{{ value }}</option>
-                            {% endfor %}
+                        <label class="form-label">Type de séance</label>
+                        <div id="type_seance" class="form-control-plaintext text-muted">Défini par l'affectation sélectionnée</div>
+                    </div>
+
+                    <!-- === TYPE DE SEMAINE === -->
+                    <div class="mb-3">
+                        <label for="semaine_type" class="form-label">Semaine</label>
+                        <select name="semaine_type" id="semaine_type" class="form-select">
+                            <option value="TOUTES">Toutes les semaines</option>
+                            <option value="PAIRE">Semaines paires</option>
+                            <option value="IMPAIRE">Semaines impaires</option>
                         </select>
                     </div>
 
                     <!-- === CRÉNEAU === -->
-                    <div class="mb-3">
-                        <label for="id_creneau" class="form-label">Créneau horaire</label>
-                        <select name="id_creneau" id="id_creneau" class="form-select" required>
-                            <option value="">Sélectionner...</option>
-                            {% for creneau in creneaux %}
-                                <option value="{{ creneau.id_creneau }}">{{ creneau.heure_debut }} - {{ creneau.heure_fin }}</option>
-                            {% endfor %}
-                        </select>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="jour" class="form-label">Jour</label>
+                            <select name="jour" id="jour" class="form-select" required>
+                                <option value="">Sélectionner...</option>
+                                {% for key, value in JOURS.items() %}
+                                    <option value="{{ key }}">{{ value }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="id_creneau" class="form-label">Créneau horaire</label>
+                            <select name="id_creneau" id="id_creneau" class="form-select" required>
+                                <option value="">Sélectionner...</option>
+                                {% for creneau in creneaux %}
+                                    <option value="{{ creneau.id_creneau }}" data-horaire="{{ creneau.heure_debut.strftime('%H:%M') }} → {{ creneau.heure_fin.strftime('%H:%M') }}">
+                                        {{ creneau.heure_debut.strftime('%H:%M') }} → {{ creneau.heure_fin.strftime('%H:%M') }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div id="creneau_resume" class="form-text mb-3"></div>
                     </div>
 
                     <!-- === SALLE === -->
@@ -59,19 +90,13 @@
                         <select name="id_salle" id="id_salle" class="form-select" required>
                             <option value="">Sélectionner...</option>
                             {% for salle in salles %}
-                                <option value="{{ salle.id_salle }}">{{ salle.nom_salle }} ({{ salle.capacite }} places)</option>
+                                <option value="{{ salle.id_salle }}" data-type-salle="{{ salle.type_salle }}">
+                                    {{ salle.code_salle }} — {{ salle.nom_salle }} — {{ salle.type_salle }} — {% if salle.capacite is not none %}{{ salle.capacite }} places{% else %}capacité non renseignée{% endif %}
+                                </option>
                             {% endfor %}
                         </select>
-                    </div>
-
-                    <!-- === TYPE DE SEMAINE === -->
-                    <div class="mb-3">
-                        <label for="semaine_type" class="form-label">Type de semaine</label>
-                        <select name="semaine_type" id="semaine_type" class="form-select">
-                            <option value="TOUTES">Toutes les semaines</option>
-                            <option value="PAIRE">Semaines paires</option>
-                            <option value="IMPAIRE">Semaines impaires</option>
-                        </select>
+                        <div class="form-text">Seules les salles actives sont proposées.</div>
+                        <div id="capacite_inconnue" class="form-text text-warning d-none">Capacité non renseignée — vérification manuelle conseillée.</div>
                     </div>
 
                     <div class="alert alert-info">
@@ -100,4 +125,73 @@
     </div>
 </div>
 
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const affectation = document.getElementById('id_affectation');
+    const professeurFilter = document.getElementById('professeur_filter');
+    const typeSeance = document.getElementById('type_seance');
+    const salle = document.getElementById('id_salle');
+    const jour = document.getElementById('jour');
+    const creneau = document.getElementById('id_creneau');
+    const resume = document.getElementById('creneau_resume');
+    const capaciteInconnue = document.getElementById('capacite_inconnue');
+    const optionsSalles = Array.from(salle.options).slice(1);
+    const optionAffectationPlaceholder = affectation.options[0];
+    const optionsAffectations = Array.from(affectation.options).slice(1);
+    const optionAucuneAffectation = new Option('Aucune affectation pour ce professeur.', '');
+    optionAucuneAffectation.disabled = true;
+
+    optionsSalles.forEach((option, index) => option.dataset.ordreInitial = index);
+
+    function filtrerAffectations() {
+        const professeurId = professeurFilter.value;
+        const selectionActuelle = affectation.value;
+        const optionsVisibles = optionsAffectations.filter(option =>
+            !professeurId || option.dataset.professeurId === professeurId
+        );
+
+        affectation.replaceChildren(optionAffectationPlaceholder);
+        optionsVisibles.forEach(option => affectation.appendChild(option));
+        if (optionsVisibles.length === 0) {
+            affectation.appendChild(optionAucuneAffectation);
+        }
+
+        const selectionToujoursVisible = optionsVisibles.some(
+            option => option.value === selectionActuelle
+        );
+        affectation.value = selectionToujoursVisible ? selectionActuelle : '';
+        actualiserSalles();
+    }
+
+    function actualiserSalles() {
+        const type = affectation.selectedOptions[0]?.dataset.enseignement || '';
+        typeSeance.textContent = type || "Défini par l'affectation sélectionnée";
+        const priorites = type === 'CM'
+            ? { AMPHI: 0, GRANDE_SALLE: 1, PETITE_SALLE: 2 }
+            : { PETITE_SALLE: 0, GRANDE_SALLE: 1, AMPHI: 2 };
+
+        optionsSalles.sort((a, b) =>
+            (priorites[a.dataset.typeSalle] ?? 3) - (priorites[b.dataset.typeSalle] ?? 3)
+            || Number(a.dataset.ordreInitial) - Number(b.dataset.ordreInitial)
+        ).forEach(option => salle.appendChild(option));
+    }
+
+    function actualiserCreneau() {
+        const libelleJour = jour.selectedOptions[0]?.textContent || '';
+        const horaire = creneau.selectedOptions[0]?.dataset.horaire || '';
+        resume.textContent = libelleJour && horaire ? `${libelleJour} — ${horaire}` : '';
+    }
+
+    function actualiserAvertissementCapacite() {
+        const texte = salle.selectedOptions[0]?.textContent || '';
+        capaciteInconnue.classList.toggle('d-none', !texte.includes('capacité non renseignée'));
+    }
+
+    affectation.addEventListener('change', actualiserSalles);
+    professeurFilter.addEventListener('change', filtrerAffectations);
+    jour.addEventListener('change', actualiserCreneau);
+    creneau.addEventListener('change', actualiserCreneau);
+    salle.addEventListener('change', actualiserAvertissementCapacite);
+});
+</script>
 {% endblock %}

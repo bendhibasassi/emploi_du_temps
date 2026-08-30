@@ -1,177 +1,78 @@
-<!-- app/templates/base.html -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📚 Gestion Emploi du Temps</title>
-    
-    <!-- Bootstrap CSS -->
+    <title>{% block title %}Gestion des emplois du temps{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Font Awesome pour les icônes -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style>
-        /* ===== FORCER LA MARGE EN HAUT ===== */
-        body {
-            padding-top: 130px !important;
-            background-color: #f8f9fa;
-            min-height: 100vh;
-        }
-
-        .navbar {
-            min-height: 70px !important;
-        }
-
-        .navbar-brand {
-            font-weight: bold;
-            font-size: 1.4rem;
-        }
-
-        .flash-messages {
-            margin-top: 10px;
-        }
-
-        .card {
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-            margin-top: 10px !important;
-        }
-
-        .btn {
-            border-radius: 8px;
-        }
-
-        footer {
-            margin-top: 50px;
-            padding: 20px 0;
-            text-align: center;
-            color: #6c757d;
-            border-top: 1px solid #dee2e6;
-        }
-
-        .container {
-            padding-top: 20px !important;
-            padding-bottom: 30px;
-        }
-
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
-<body style="padding-top: 100px; background-color: #f8f9fa;">
-    <!-- BARRE DE NAVIGATION -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('main.index') }}">
-                <i class="fas fa-university"></i> Université
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.index') }}">
-                            <i class="fas fa-home"></i> Accueil
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.ajouter_seance') }}">
-                            <i class="fas fa-plus-circle"></i> Ajouter Séance
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.emploi_du_temps') }}">
-                            <i class="fas fa-calendar-alt"></i> Emploi du Temps
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.professeurs') }}">
-                            <i class="fas fa-chalkboard-teacher"></i> Professeurs
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.salles') }}">
-                            <i class="fas fa-door-open"></i> Salles
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.groupes') }}">
-                            <i class="fas fa-users"></i> Groupes
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.matieres') }}">
-                            <i class="fas fa-book"></i> Matières
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.ajouter_professeur') }}">
-                            <i class="fas fa-user-plus"></i> Ajouter Prof
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.importer_professeurs') }}">
-                            <i class="fas fa-file-import"></i> Importer Excel
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.indisponibilites') }}">
-                            <i class="fas fa-ban"></i> Indisponibilités
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.historique') }}">
-                            <i class="fas fa-history"></i> Historique
-                        </a>
-                    </li>
-                </ul>
-                <span class="navbar-text text-light">
-                    <i class="fas fa-clock"></i> Année 2025-2026
-                </span>
-            </div>
-        </div>
-    </nav>
-
-    <!-- CONTENU PRINCIPAL AVEC MARGE SUPPLEMENTAIRE -->
-    <div class="container" style="margin-top: 30px;">
-        <!-- Messages flash -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="flash-messages">
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category if category != 'danger' else 'danger' }} alert-dismissible fade show" role="alert">
-                            <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'danger' %}exclamation-circle{% else %}info-circle{% endif %}"></i>
-                            {{ message|safe }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endfor %}
-                </div>
-            {% endif %}
-        {% endwith %}
-
-        <!-- Contenu de la page -->
-        {% block content %}{% endblock %}
+<body>
+    <aside class="app-sidebar" id="appSidebar" aria-label="Navigation principale">
+        <a class="sidebar-brand" href="{{ url_for('main.index') }}">
+            <span class="brand-icon"><i class="fas fa-university"></i></span>
+            <span><strong>Université</strong><small>Gestion des emplois du temps</small></span>
+        </a>
+        <nav class="sidebar-nav">
+            <span class="nav-section">Tableau de bord</span>
+            <a class="sidebar-link {% if request.endpoint == 'main.index' %}active{% endif %}" href="{{ url_for('main.index') }}"><i class="fas fa-house"></i><span>Accueil</span></a>
+            <span class="nav-section">Gestion du planning</span>
+            <a class="sidebar-link {% if request.endpoint in ('main.emploi_du_temps', 'main.modifier_seance') %}active{% endif %}" href="{{ url_for('main.emploi_du_temps') }}"><i class="fas fa-calendar-days"></i><span>Emploi du temps</span></a>
+            <a class="sidebar-link {% if request.endpoint == 'main.ajouter_seance' %}active{% endif %}" href="{{ url_for('main.ajouter_seance') }}"><i class="fas fa-calendar-plus"></i><span>Nouvelle séance</span></a>
+            <a class="sidebar-link {% if 'indisponibilite' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('main.indisponibilites') }}"><i class="fas fa-calendar-xmark"></i><span>Indisponibilités</span></a>
+            <span class="nav-section">Enseignement</span>
+            <a class="sidebar-link {% if request.endpoint == 'main.affectations' %}active{% endif %}" href="{{ url_for('main.affectations') }}"><i class="fas fa-link"></i><span>Affectations</span></a>
+            <a class="sidebar-link {% if 'professeur' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('main.professeurs') }}"><i class="fas fa-chalkboard-user"></i><span>Professeurs</span></a>
+            <span class="nav-section">Référentiel pédagogique</span>
+            <a class="sidebar-link {% if request.endpoint == 'main.niveaux_sections' %}active{% endif %}" href="{{ url_for('main.niveaux_sections') }}"><i class="fas fa-sitemap"></i><span>Niveaux / Sections</span></a>
+            <a class="sidebar-link {% if 'groupe' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('main.groupes') }}"><i class="fas fa-people-group"></i><span>Groupes</span></a>
+            <a class="sidebar-link {% if 'matiere' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('main.matieres') }}"><i class="fas fa-book-open"></i><span>Matières</span></a>
+            <span class="nav-section">Ressources</span>
+            <a class="sidebar-link {% if 'salle' in (request.endpoint or '') %}active{% endif %}" href="{{ url_for('main.salles') }}"><i class="fas fa-door-open"></i><span>Salles</span></a>
+            <a class="sidebar-link {% if request.endpoint == 'main.creneaux' %}active{% endif %}" href="{{ url_for('main.creneaux') }}"><i class="fas fa-clock"></i><span>Créneaux</span></a>
+            <span class="nav-section">Administration</span>
+            <a class="sidebar-link {% if request.endpoint == 'main.annees_universitaires' %}active{% endif %}" href="{{ url_for('main.annees_universitaires') }}"><i class="fas fa-calendar"></i><span>Années universitaires</span></a>
+            <a class="sidebar-link {% if request.endpoint == 'main.historique' %}active{% endif %}" href="{{ url_for('main.historique') }}"><i class="fas fa-clock-rotate-left"></i><span>Historique</span></a>
+        </nav>
+    </aside>
+    <button class="sidebar-backdrop" id="sidebarBackdrop" type="button" aria-label="Fermer le menu"></button>
+    <div class="app-shell">
+        <header class="app-header">
+            <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-controls="appSidebar" aria-expanded="false" aria-label="Ouvrir le menu"><i class="fas fa-bars"></i></button>
+            <div class="header-context"><span class="header-title">Planification universitaire</span><span class="header-subtitle">Organisation pédagogique et ressources</span></div>
+            <div class="academic-year"><i class="far fa-calendar"></i><span>2025–2026</span></div>
+        </header>
+        <main class="app-main" id="mainContent">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages" aria-live="polite">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                <i class="fas fa-{% if category == 'success' %}circle-check{% elif category == 'danger' %}circle-exclamation{% elif category == 'warning' %}triangle-exclamation{% else %}circle-info{% endif %}"></i>
+                                {{ message|safe }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </main>
+        <footer class="app-footer"><span>Gestion des emplois du temps universitaires</span><span>Flask · SQLite</span></footer>
     </div>
-
-    <!-- PIED DE PAGE -->
-    <footer>
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6 text-md-start">
-                    <i class="fas fa-code"></i> Développé avec Flask
-                </div>
-                <div class="col-md-6 text-md-end">
-                    <i class="fas fa-database"></i> SQLite
-                    <span class="mx-2">|</span>
-                    <i class="fas fa-graduation-cap"></i> Université
-                </div>
-            </div>
-        </div>
-    </footer>
-
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const sidebar = document.getElementById('appSidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+        function setSidebar(open) {
+            document.body.classList.toggle('sidebar-open', open);
+            sidebarToggle.setAttribute('aria-expanded', String(open));
+        }
+        sidebarToggle.addEventListener('click', () => setSidebar(!document.body.classList.contains('sidebar-open')));
+        sidebarBackdrop.addEventListener('click', () => setSidebar(false));
+        document.addEventListener('keydown', event => { if (event.key === 'Escape') setSidebar(false); });
+    </script>
 </body>
 </html>

@@ -10,37 +10,23 @@
             </div>
             <div class="card-body">
                 <form method="POST">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="code_salle" class="form-label">Code salle <span class="text-danger">*</span></label>
-                            <input type="text" name="code_salle" id="code_salle" class="form-control"
-                                   placeholder="A101" required>
-                            <div class="form-text">Ex: A101, B201, C301</div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="nom_salle" class="form-label">Nom <span class="text-danger">*</span></label>
-                            <input type="text" name="nom_salle" id="nom_salle" class="form-control"
-                                   placeholder="Amphi A" required>
-                            <div class="form-text">Ex: Amphi A, Salle B201, Labo C301</div>
-                        </div>
+                    <div class="mb-3">
+                        <label for="code_salle" class="form-label">Salle <span class="text-danger">*</span></label>
+                        <select name="code_salle" id="code_salle" class="form-select" required>
+                            <option value="">Choisir une salle...</option>
+                            {% for code in codes_salles %}
+                                <option value="{{ code }}">{{ code }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Le nom et le type sont déterminés automatiquement.</div>
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label for="type_salle" class="form-label">Type</label>
-                            <select name="type_salle" id="type_salle" class="form-select">
-                                <option value="AMPHI">🏛️ Amphi</option>
-                                <option value="SALLE">🪑 Salle de cours</option>
-                                <option value="TD">📝 Salle de TD</option>
-                                <option value="LABO">🔬 Laboratoire</option>
-                                <option value="AUTRE">📌 Autre</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="capacite" class="form-label">Capacité <span class="text-danger">*</span></label>
+                            <label for="capacite" class="form-label">Capacité</label>
                             <input type="number" name="capacite" id="capacite" class="form-control"
-                                   placeholder="100" min="1" required>
-                            <div class="form-text">Nombre de places assises</div>
+                                   placeholder="100" min="1">
+                            <div class="form-text">Laisser vide si la capacité n'est pas encore connue.</div>
                         </div>
                     </div>
 

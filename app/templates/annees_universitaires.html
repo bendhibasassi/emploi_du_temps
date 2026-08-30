@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Années universitaires{% endblock %}
+{% block content %}
+<div class="page-heading"><div><h1>Années universitaires</h1><p>Périodes académiques configurées dans l'application.</p></div></div>
+<div class="row g-3">
+{% for annee in annees %}
+    <div class="col-md-6 col-xl-4">
+        <article class="card h-100 academic-card">
+            <div class="card-body">
+                <div class="d-flex align-items-start justify-content-between gap-2"><div><p class="metric-label">Année universitaire</p><h4>{{ annee.libelle }}</h4></div><span class="badge {% if annee.active %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Active' if annee.active else 'Inactive' }}</span></div>
+                <dl class="mb-0"><dt>Début</dt><dd>{{ annee.date_debut.strftime('%d/%m/%Y') }}</dd><dt>Fin</dt><dd>{{ annee.date_fin.strftime('%d/%m/%Y') }}</dd></dl>
+            </div>
+        </article>
+    </div>
+{% else %}<div class="col-12"><div class="alert alert-info">Aucune année universitaire configurée.</div></div>{% endfor %}
+</div>
+{% endblock %}

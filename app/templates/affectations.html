@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Affectations pédagogiques{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div><h1>Affectations</h1><p>Qui enseigne quoi, à quelle section ou quel groupe.</p></div>
+    <span class="badge bg-primary fs-6">{{ affectations|length }} affectations</span>
+</div>
+<form method="GET" class="row g-2 align-items-end mb-4">
+    <div class="col-md-5">
+        <label for="professeur_id" class="form-label">Professeur</label>
+        <select name="professeur_id" id="professeur_id" class="form-select">
+            <option value="">Tous les professeurs</option>
+            {% for professeur in professeurs %}
+                <option value="{{ professeur.id_professeur }}" {% if professeur_selectionne and professeur_selectionne.id_professeur == professeur.id_professeur %}selected{% endif %}>
+                    {{ professeur.prenom or '' }} {{ professeur.nom }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Filtrer</button>
+    </div>
+</form>
+{% if affectations %}
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead><tr><th>Année</th><th>Professeur</th><th>Matière</th><th>Niveau</th><th>Public</th><th>Type</th><th>Semestre</th><th>Statut</th></tr></thead>
+        <tbody>
+        {% for affectation in affectations %}
+            <tr>
+                <td>{{ affectation.annee.libelle }}</td>
+                <td><strong>{{ affectation.professeur.prenom or '' }} {{ affectation.professeur.nom }}</strong></td>
+                <td>{{ affectation.matiere.code_matiere }}<br><small class="text-muted">{{ affectation.matiere.nom_matiere }}</small></td>
+                <td>{{ affectation.section.niveau.code_niveau }}</td>
+                <td>{{ affectation.section.libelle }}{% if affectation.groupe %}<br><small class="text-muted">{{ affectation.groupe.code_groupe }} — {{ affectation.groupe.nom_groupe }}</small>{% endif %}</td>
+                <td><span class="badge teaching-type type-{{ affectation.type_enseignement|lower }}">{{ affectation.type_enseignement }}</span></td>
+                <td>S{{ affectation.semestre }}</td>
+                <td><span class="badge {% if affectation.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Active' if affectation.actif else 'Inactive' }}</span></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info">Aucune affectation enregistrée.</div>
+{% endif %}
+{% endblock %}

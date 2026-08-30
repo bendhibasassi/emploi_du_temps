@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Niveaux et sections{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div><h1>Niveaux et sections</h1><p>Hiérarchie du référentiel pédagogique.</p></div>
+    <a href="{{ url_for('main.groupes') }}" class="btn btn-secondary"><i class="fas fa-people-group me-1"></i> Voir les groupes</a>
+</div>
+<div class="accordion hierarchy" id="niveauxAccordion">
+{% for niveau in niveaux %}
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="niveauHeading{{ niveau.id_niveau }}">
+            <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#niveau{{ niveau.id_niveau }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="niveau{{ niveau.id_niveau }}">
+                <span class="level-code">{{ niveau.code_niveau }}</span>
+                <span><strong>{{ niveau.libelle }}</strong><small>{{ niveau.cycle }} · {{ niveau.specialite }} · {{ niveau.annee_etude }}</small></span>
+                <span class="badge ms-auto me-3 {% if niveau.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Actif' if niveau.actif else 'Inactif' }}</span>
+            </button>
+        </h2>
+        <div id="niveau{{ niveau.id_niveau }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#niveauxAccordion">
+            <div class="accordion-body">
+                {% if niveau.sections %}
+                    <div class="row g-3">
+                    {% for section in niveau.sections|sort(attribute='code_section') %}
+                        <div class="col-md-6 col-xl-4">
+                            <article class="section-card">
+                                <div class="d-flex justify-content-between gap-2"><strong>{{ section.code_section }} — {{ section.libelle }}</strong><span class="badge {% if section.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Active' if section.actif else 'Inactive' }}</span></div>
+                                <p>{{ section.effectif or 0 }} étudiants</p>
+                                {% if section.groupes %}<ul>{% for groupe in section.groupes|sort(attribute='code_groupe') %}<li>{{ groupe.code_groupe }} — {{ groupe.nom_groupe }} <small>({{ groupe.effectif or 0 }})</small></li>{% endfor %}</ul>{% else %}<small class="text-muted">Aucun groupe</small>{% endif %}
+                            </article>
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% else %}<p class="text-muted mb-0">Aucune section associée.</p>{% endif %}
+            </div>
+        </div>
+    </div>
+{% else %}
+    <div class="alert alert-info">Aucun niveau enregistré.</div>
+{% endfor %}
+</div>
+{% endblock %}
