@@ -6,7 +6,7 @@ import re
 import pandas as pd
 from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
 from sqlalchemy import or_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 from app import db
 from app.models import (
     Professeur, Matiere, Niveau, Section, Groupe, Salle, Creneau,
@@ -224,12 +224,35 @@ def index():
 @main.route('/affectations')
 def affectations():
     """Consulter les affectations pédagogiques existantes."""
+    annees_list = AnneeUniversitaire.query.order_by(
+        AnneeUniversitaire.date_debut.desc()
+    ).all()
+    niveaux_list = Niveau.query.order_by(
+        Niveau.cycle,
+        Niveau.annee_etude,
+        Niveau.code_niveau
+    ).all()
+    sections_list = Section.query.order_by(
+        Section.id_niveau,
+        Section.code_section
+    ).all()
     professeurs_list = Professeur.query.order_by(
         Professeur.nom,
         Professeur.prenom
     ).all()
-    professeur_id_brut = request.args.get('professeur_id', '').strip()
-    professeur_selectionne = None
+    semestres_list = [valeur for valeur, in db.session.query(
+        Affectation.semestre
+    ).distinct().order_by(Affectation.semestre).all()]
+    types_list = ('CM', 'TD', 'TP')
+
+    annee_id = request.args.get('annee_id', type=int)
+    niveau_id = request.args.get('niveau_id', type=int)
+    section_id = request.args.get('section_id', type=int)
+    professeur_id = request.args.get('professeur_id', type=int)
+    semestre = request.args.get('semestre', type=int)
+    type_enseignement = request.args.get('type_enseignement', '').strip()
+    actif = request.args.get('actif', '').strip()
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
 
     query = Affectation.query.options(
         joinedload(Affectation.annee),
@@ -237,31 +260,67 @@ def affectations():
         joinedload(Affectation.matiere),
         joinedload(Affectation.section).joinedload(Section.niveau),
         joinedload(Affectation.groupe),
+        selectinload(Affectation.seances),
     )
 
-    if professeur_id_brut:
-        try:
-            professeur_id = int(professeur_id_brut)
-        except ValueError:
-            flash('❌ Filtre professeur invalide.', 'danger')
-        else:
-            professeur_selectionne = Professeur.query.get(professeur_id)
-            if professeur_selectionne is None:
-                flash('❌ Professeur inexistant.', 'danger')
-            else:
-                query = query.filter(Affectation.id_professeur == professeur_id)
+    if annee_id is not None:
+        query = query.filter(Affectation.id_annee == annee_id)
+    if niveau_id is not None:
+        query = query.join(
+            Section, Affectation.id_section == Section.id_section
+        ).filter(Section.id_niveau == niveau_id)
+    if section_id is not None:
+        query = query.filter(Affectation.id_section == section_id)
+    if professeur_id is not None:
+        query = query.filter(Affectation.id_professeur == professeur_id)
+    if semestre is not None:
+        query = query.filter(Affectation.semestre == semestre)
+    if type_enseignement in types_list:
+        query = query.filter(Affectation.type_enseignement == type_enseignement)
+    elif type_enseignement:
+        query = query.filter(Affectation.id_affectation.is_(None))
+    if actif in {'0', '1'}:
+        query = query.filter(Affectation.actif.is_(actif == '1'))
 
-    affectations_list = query.order_by(
+    total_affectations = Affectation.query.count()
+    pagination = query.order_by(
         Affectation.id_annee,
         Affectation.id_section,
         Affectation.type_enseignement,
         Affectation.id_groupe
-    ).all()
+    ).paginate(page=page, per_page=25, error_out=False)
+
+    filtres_url = {
+        cle: valeur for cle, valeur in {
+            'annee_id': annee_id,
+            'niveau_id': niveau_id,
+            'section_id': section_id,
+            'professeur_id': professeur_id,
+            'semestre': semestre,
+            'type_enseignement': type_enseignement or None,
+            'actif': actif if actif in {'0', '1'} else None,
+        }.items() if valeur is not None
+    }
+
     return render_template(
         'affectations.html',
-        affectations=affectations_list,
+        affectations=pagination.items,
+        pagination=pagination,
+        total_affectations=total_affectations,
+        filtres_url=filtres_url,
+        annees=annees_list,
+        niveaux=niveaux_list,
+        sections=sections_list,
         professeurs=professeurs_list,
-        professeur_selectionne=professeur_selectionne
+        semestres=semestres_list,
+        types_enseignement=types_list,
+        annee_id=annee_id,
+        niveau_id=niveau_id,
+        section_id=section_id,
+        professeur_id=professeur_id,
+        semestre_selectionne=semestre,
+        type_selectionne=type_enseignement,
+        actif_selectionne=actif
     )
 
 

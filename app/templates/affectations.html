@@ -3,45 +3,126 @@
 {% block content %}
 <div class="page-heading">
     <div><h1>Affectations</h1><p>Qui enseigne quoi, à quelle section ou quel groupe.</p></div>
-    <span class="badge bg-primary fs-6">{{ affectations|length }} affectations</span>
+    <span class="badge bg-primary fs-6">{{ pagination.total }} résultat(s) sur {{ total_affectations }}</span>
 </div>
 <form method="GET" class="row g-2 align-items-end mb-4">
-    <div class="col-md-5">
+    <div class="col-md-3">
+        <label for="annee_id" class="form-label">Année universitaire</label>
+        <select name="annee_id" id="annee_id" class="form-select">
+            <option value="">Toutes les années</option>
+            {% for annee in annees %}<option value="{{ annee.id_annee }}" {% if annee_id == annee.id_annee %}selected{% endif %}>{{ annee.libelle }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label for="niveau_id" class="form-label">Niveau</label>
+        <select name="niveau_id" id="niveau_id" class="form-select">
+            <option value="">Tous les niveaux</option>
+            {% for niveau in niveaux %}<option value="{{ niveau.id_niveau }}" {% if niveau_id == niveau.id_niveau %}selected{% endif %}>{{ niveau.code_niveau }} — {{ niveau.libelle }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label for="section_id" class="form-label">Section</label>
+        <select name="section_id" id="section_id" class="form-select">
+            <option value="">Toutes les sections</option>
+            {% for section in sections %}<option value="{{ section.id_section }}" {% if section_id == section.id_section %}selected{% endif %}>{{ section.niveau.code_niveau }} — {{ section.libelle }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-3">
         <label for="professeur_id" class="form-label">Professeur</label>
         <select name="professeur_id" id="professeur_id" class="form-select">
             <option value="">Tous les professeurs</option>
             {% for professeur in professeurs %}
-                <option value="{{ professeur.id_professeur }}" {% if professeur_selectionne and professeur_selectionne.id_professeur == professeur.id_professeur %}selected{% endif %}>
+                <option value="{{ professeur.id_professeur }}" {% if professeur_id == professeur.id_professeur %}selected{% endif %}>
                     {{ professeur.prenom or '' }} {{ professeur.nom }}
                 </option>
             {% endfor %}
         </select>
     </div>
-    <div class="col-auto">
+    <div class="col-md-2">
+        <label for="semestre" class="form-label">Semestre</label>
+        <select name="semestre" id="semestre" class="form-select">
+            <option value="">Tous</option>
+            {% for valeur in semestres %}<option value="{{ valeur }}" {% if semestre_selectionne == valeur %}selected{% endif %}>S{{ valeur }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label for="type_enseignement" class="form-label">Type</label>
+        <select name="type_enseignement" id="type_enseignement" class="form-select">
+            <option value="">Tous</option>
+            {% for valeur in types_enseignement %}<option value="{{ valeur }}" {% if type_selectionne == valeur %}selected{% endif %}>{{ valeur }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <label for="actif" class="form-label">Statut</label>
+        <select name="actif" id="actif" class="form-select">
+            <option value="">Tous</option>
+            <option value="1" {% if actif_selectionne == '1' %}selected{% endif %}>Actives</option>
+            <option value="0" {% if actif_selectionne == '0' %}selected{% endif %}>Inactives</option>
+        </select>
+    </div>
+    <div class="col-auto d-flex gap-2">
         <button type="submit" class="btn btn-primary">Filtrer</button>
+        <a href="{{ url_for('main.affectations') }}" class="btn btn-secondary">Réinitialiser</a>
     </div>
 </form>
+{% if pagination.total %}
+<p class="text-muted">Page {{ pagination.page }} sur {{ pagination.pages }} · {{ pagination.total }} résultat(s)</p>
+{% else %}
+<p class="text-muted">0 résultat · Aucune affectation trouvée.</p>
+{% endif %}
 {% if affectations %}
 <div class="table-responsive">
     <table class="table table-hover">
-        <thead><tr><th>Année</th><th>Professeur</th><th>Matière</th><th>Niveau</th><th>Public</th><th>Type</th><th>Semestre</th><th>Statut</th></tr></thead>
+        <thead><tr><th>Année</th><th>Professeur</th><th>Matière</th><th>Niveau</th><th>Public</th><th>Type</th><th>Semestre</th><th>Charge</th><th>Statut</th></tr></thead>
         <tbody>
         {% for affectation in affectations %}
             <tr>
                 <td>{{ affectation.annee.libelle }}</td>
-                <td><strong>{{ affectation.professeur.prenom or '' }} {{ affectation.professeur.nom }}</strong></td>
-                <td>{{ affectation.matiere.code_matiere }}<br><small class="text-muted">{{ affectation.matiere.nom_matiere }}</small></td>
-                <td>{{ affectation.section.niveau.code_niveau }}</td>
-                <td>{{ affectation.section.libelle }}{% if affectation.groupe %}<br><small class="text-muted">{{ affectation.groupe.code_groupe }} — {{ affectation.groupe.nom_groupe }}</small>{% endif %}</td>
+                <td>
+                    <a href="{{ url_for('main.affectations_professeur', id_professeur=affectation.id_professeur) }}" class="fw-semibold text-decoration-none">
+                        {{ affectation.professeur.prenom or '' }} {{ affectation.professeur.nom }}
+                    </a>
+                </td>
+                <td><a href="{{ url_for('main.matieres') }}" class="text-decoration-none">{{ affectation.matiere.code_matiere }}<br><small class="text-muted">{{ affectation.matiere.nom_matiere }}</small></a></td>
+                <td><a href="{{ url_for('main.niveaux_sections') }}" class="text-decoration-none">{{ affectation.section.niveau.code_niveau }}</a></td>
+                <td><a href="{{ url_for('main.niveaux_sections') }}" class="text-decoration-none">{{ affectation.section.libelle }}</a>{% if affectation.groupe %}<br><small class="text-muted">{{ affectation.groupe.code_groupe }} — {{ affectation.groupe.nom_groupe }}</small>{% endif %}</td>
                 <td><span class="badge teaching-type type-{{ affectation.type_enseignement|lower }}">{{ affectation.type_enseignement }}</span></td>
                 <td>S{{ affectation.semestre }}</td>
-                <td><span class="badge {% if affectation.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Active' if affectation.actif else 'Inactive' }}</span></td>
+                <td class="small text-nowrap">
+                    <strong>{{ affectation.nb_seances_semaine if affectation.nb_seances_semaine is not none else '—' }}</strong> séance(s)/sem.<br>
+                    {{ affectation.duree_seance_minutes if affectation.duree_seance_minutes is not none else '—' }} min/séance<br>
+                    <span class="text-muted">Volume : {{ affectation.volume_total_minutes if affectation.volume_total_minutes is not none else '—' }} min</span><br>
+                    <span class="text-muted">Priorité : {{ affectation.priorite if affectation.priorite is not none else '—' }}</span>
+                </td>
+                <td>
+                    <span class="badge {% if affectation.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Active' if affectation.actif else 'Inactive' }}</span>
+                    {% if not affectation.seances %}<br><span class="badge bg-warning text-dark mt-1">Sans séance</span>{% endif %}
+                </td>
             </tr>
         {% endfor %}
         </tbody>
     </table>
 </div>
+{% if pagination.pages > 1 %}
+<nav aria-label="Pagination des affectations">
+    <ul class="pagination justify-content-center">
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('main.affectations', page=pagination.prev_num, **filtres_url) if pagination.has_prev else '#' }}">Précédent</a>
+        </li>
+        {% for numero in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if numero %}
+                <li class="page-item {% if numero == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('main.affectations', page=numero, **filtres_url) }}">{{ numero }}</a></li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+        {% endfor %}
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('main.affectations', page=pagination.next_num, **filtres_url) if pagination.has_next else '#' }}">Suivant</a>
+        </li>
+    </ul>
+</nav>
+{% endif %}
 {% else %}
-<div class="alert alert-info">Aucune affectation enregistrée.</div>
+<div class="alert alert-info">Aucune affectation trouvée.</div>
 {% endif %}
 {% endblock %}
