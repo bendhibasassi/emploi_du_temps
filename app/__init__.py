@@ -19,6 +19,7 @@ db = SQLAlchemy()
 ROUTES_ECRITURE = {
     'main.ajouter_annee_universitaire',
     'main.activer_annee_universitaire',
+    'main.preparer_annee_universitaire',
     'main.ajouter_affectation', 'main.modifier_affectation',
     'main.changer_statut_affectation',
     'main.ajouter_niveau', 'main.modifier_niveau',

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Préparer une année universitaire{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div><h1>Préparer une nouvelle année</h1><p>Réutilisez les référentiels et copiez uniquement les affectations absentes.</p></div>
+    <a href="{{ url_for('main.annees_universitaires') }}" class="btn btn-outline-secondary">Retour aux années</a>
+</div>
+<div class="card mb-4"><div class="card-body">
+    <form method="GET" class="row g-3 align-items-end">
+        <div class="col-md-5"><label for="source_id" class="form-label">Année source</label><select name="source_id" id="source_id" class="form-select" required><option value="">Sélectionner...</option>{% for annee in annees %}<option value="{{ annee.id_annee }}" {% if source and source.id_annee == annee.id_annee %}selected{% endif %}>{{ annee.libelle }}</option>{% endfor %}</select></div>
+        <div class="col-md-5"><label for="cible_id" class="form-label">Année cible existante</label><select name="cible_id" id="cible_id" class="form-select" required><option value="">Sélectionner...</option>{% for annee in annees %}<option value="{{ annee.id_annee }}" {% if cible and cible.id_annee == annee.id_annee %}selected{% endif %}>{{ annee.libelle }}{% if annee.active %} — année de travail{% endif %}</option>{% endfor %}</select></div>
+        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100">Afficher l’aperçu</button></div>
+    </form>
+</div></div>
+{% if analyse %}
+<div class="card"><div class="card-body">
+    <h2 class="h4">Aperçu {{ source.libelle }} → {{ cible.libelle }}</h2>
+    <dl class="row mb-3">
+        <dt class="col-sm-7">Affectations dans la source</dt><dd class="col-sm-5">{{ analyse.source_total }}</dd>
+        <dt class="col-sm-7">Affectations déjà présentes dans la cible</dt><dd class="col-sm-5">{{ analyse.cible_total }}</dd>
+        <dt class="col-sm-7">Affectations qui seraient créées</dt><dd class="col-sm-5"><strong>{{ analyse.nombre_a_creer }}</strong></dd>
+        <dt class="col-sm-7">Doublons ignorés</dt><dd class="col-sm-5">{{ analyse.doublons_ignores }}</dd>
+        <dt class="col-sm-7">Références invalides</dt><dd class="col-sm-5">{{ analyse.references_invalides|length }}</dd>
+    </dl>
+    <div class="alert alert-info">Les séances, indisponibilités et entrées d’historique ne seront pas copiées. L’année cible ne sera pas activée automatiquement.</div>
+    {% if analyse.references_invalides %}
+        <div class="alert alert-danger">Copie bloquée. Affectations source concernées : {{ analyse.references_invalides|join(', ') }}.</div>
+    {% else %}
+        <form method="POST" onsubmit="return confirm('Confirmer la copie contrôlée des affectations ?');">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="source_id" value="{{ source.id_annee }}">
+            <input type="hidden" name="cible_id" value="{{ cible.id_annee }}">
+            <div class="form-check mb-3"><input type="checkbox" name="confirmer" id="confirmer" class="form-check-input" required><label for="confirmer" class="form-check-label">Je confirme la préparation de l’année cible sans copie des séances ni indisponibilités.</label></div>
+            <button type="submit" class="btn btn-success" {% if analyse.nombre_a_creer == 0 %}disabled{% endif %}>Créer {{ analyse.nombre_a_creer }} affectation(s)</button>
+        </form>
+    {% endif %}
+</div></div>
+{% endif %}
+{% endblock %}

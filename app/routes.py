@@ -930,6 +930,141 @@ def activer_annee_universitaire(id_annee):
     return redirect(url_for('main.annees_universitaires'))
 
 
+def cle_metier_affectation(affectation):
+    """Clé métier d'une affectation, hors année universitaire."""
+    return (
+        affectation.id_professeur,
+        affectation.id_matiere,
+        affectation.id_section,
+        affectation.id_groupe,
+        affectation.type_enseignement,
+        affectation.semestre,
+    )
+
+
+def analyser_preparation_annee(annee_source, annee_cible):
+    """Prépare sans écrire la copie des affectations entre deux années."""
+    source = Affectation.query.filter_by(
+        id_annee=annee_source.id_annee
+    ).order_by(Affectation.id_affectation).all()
+    cible = Affectation.query.filter_by(
+        id_annee=annee_cible.id_annee
+    ).all()
+
+    professeurs_valides = {
+        valeur for valeur, in db.session.query(Professeur.id_professeur).all()
+    }
+    matieres_valides = {
+        valeur for valeur, in db.session.query(Matiere.id_matiere).all()
+    }
+    sections_valides = {
+        valeur for valeur, in db.session.query(Section.id_section).all()
+    }
+    groupes_sections = dict(db.session.query(
+        Groupe.id_groupe, Groupe.id_section
+    ).all())
+    cles_existantes = {cle_metier_affectation(item) for item in cible}
+
+    a_creer = []
+    doublons_ignores = 0
+    references_invalides = []
+    for affectation in source:
+        groupe_valide = (
+            affectation.id_groupe is None or
+            groupes_sections.get(affectation.id_groupe) == affectation.id_section
+        )
+        references_valides = (
+            affectation.id_professeur in professeurs_valides and
+            affectation.id_matiere in matieres_valides and
+            affectation.id_section in sections_valides and
+            groupe_valide
+        )
+        if not references_valides:
+            references_invalides.append(affectation.id_affectation)
+            continue
+
+        cle = cle_metier_affectation(affectation)
+        if cle in cles_existantes:
+            doublons_ignores += 1
+            continue
+        cles_existantes.add(cle)
+        a_creer.append(affectation)
+
+    return {
+        'source_total': len(source),
+        'cible_total': len(cible),
+        'a_creer': a_creer,
+        'nombre_a_creer': len(a_creer),
+        'doublons_ignores': doublons_ignores,
+        'references_invalides': references_invalides,
+    }
+
+
+@main.route('/annees-universitaires/preparer', methods=['GET', 'POST'])
+def preparer_annee_universitaire():
+    """Prévisualiser puis confirmer la copie contrôlée des affectations."""
+    annees = AnneeUniversitaire.query.order_by(
+        AnneeUniversitaire.date_debut.desc()
+    ).all()
+    source_id = request.values.get('source_id', type=int)
+    cible_id = request.values.get('cible_id', type=int)
+    source = AnneeUniversitaire.query.get(source_id) if source_id else None
+    cible = AnneeUniversitaire.query.get(cible_id) if cible_id else None
+    analyse = None
+
+    if source_id or cible_id:
+        if source is None or cible is None:
+            flash('Les années source et cible doivent exister.', 'danger')
+        elif source.id_annee == cible.id_annee:
+            flash('Les années source et cible doivent être différentes.', 'danger')
+        else:
+            analyse = analyser_preparation_annee(source, cible)
+
+    if request.method == 'POST':
+        if analyse is None:
+            flash('La préparation ne peut pas être exécutée.', 'danger')
+        elif request.form.get('confirmer') != 'on':
+            flash('La confirmation explicite est obligatoire.', 'danger')
+        elif analyse['references_invalides']:
+            flash(
+                'La copie est bloquée par des références invalides dans la source.',
+                'danger'
+            )
+        else:
+            for original in analyse['a_creer']:
+                db.session.add(Affectation(
+                    id_annee=cible.id_annee,
+                    id_professeur=original.id_professeur,
+                    id_matiere=original.id_matiere,
+                    id_section=original.id_section,
+                    id_groupe=original.id_groupe,
+                    semestre=original.semestre,
+                    type_enseignement=original.type_enseignement,
+                    nb_seances_semaine=original.nb_seances_semaine,
+                    duree_seance_minutes=original.duree_seance_minutes,
+                    volume_total_minutes=original.volume_total_minutes,
+                    priorite=original.priorite,
+                    actif=original.actif,
+                ))
+            db.session.commit()
+            flash(
+                f"Préparation terminée : {analyse['nombre_a_creer']} "
+                f"affectation(s) créée(s), {analyse['doublons_ignores']} ignorée(s).",
+                'success'
+            )
+            return redirect(url_for(
+                'main.affectations', annee_id=cible.id_annee
+            ))
+
+    return render_template(
+        'preparer_annee_universitaire.html',
+        annees=annees,
+        source=source,
+        cible=cible,
+        analyse=analyse,
+    )
+
+
 @main.route('/ajouter_seance', methods=['GET', 'POST'])
 def ajouter_seance():
     """Ajouter une séance à partir d'une affectation existante."""
