@@ -2,9 +2,14 @@
 import io
 import hashlib
 import re
+from urllib.parse import urlsplit
 
 import pandas as pd
-from flask import Blueprint, render_template, request, redirect, url_for, flash, send_file
+from flask import (
+    Blueprint, current_app, render_template, request, redirect, session,
+    url_for, flash, send_file,
+)
+from werkzeug.security import check_password_hash
 from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload, selectinload
@@ -17,6 +22,48 @@ from datetime import datetime
 
 
 TYPES_SALLE = ('AMPHI', 'GRANDE_SALLE', 'PETITE_SALLE')
+main = Blueprint('main', __name__)
+
+
+def destination_sure(destination):
+    """N'autorise qu'une destination locale après connexion."""
+    if not destination:
+        return None
+    cible = urlsplit(destination)
+    if cible.scheme or cible.netloc or not cible.path.startswith('/'):
+        return None
+    return destination
+
+
+@main.route('/connexion', methods=['GET', 'POST'])
+def connexion():
+    """Ouvre une session administrateur configurée par l'environnement."""
+    destination = destination_sure(request.values.get('next'))
+    if request.method == 'POST':
+        utilisateur = request.form.get('utilisateur', '').strip()
+        mot_de_passe = request.form.get('mot_de_passe', '')
+        utilisateur_attendu = current_app.config.get('ADMIN_USERNAME')
+        hash_attendu = current_app.config.get('ADMIN_PASSWORD_HASH')
+
+        if (hash_attendu and utilisateur == utilisateur_attendu and
+                check_password_hash(hash_attendu, mot_de_passe)):
+            session.clear()
+            session['admin_connecte'] = True
+            session['admin_username'] = utilisateur_attendu
+            flash('Connexion réussie.', 'success')
+            return redirect(destination or url_for('main.index'))
+
+        flash('Identifiants invalides ou administrateur non configuré.', 'danger')
+
+    return render_template('connexion.html', next_url=destination)
+
+
+@main.route('/deconnexion', methods=['POST'])
+def deconnexion():
+    """Ferme la session administrateur."""
+    session.clear()
+    flash('Vous êtes déconnecté.', 'info')
+    return redirect(url_for('main.index'))
 
 
 def ajouter_historique(utilisateur, action, type_objet, id_objet,
@@ -144,8 +191,6 @@ def determiner_annee_consultation():
         annee_active.id_annee if annee_active else None,
         annee_active is None
     )
-
-main = Blueprint('main', __name__)
 
 # JOURS de la semaine
 JOURS = {
