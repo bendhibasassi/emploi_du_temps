@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier la section' if section else 'Nouvelle section' }}{% endblock %}
+{% block content %}
+<div class="row"><div class="col-lg-7 mx-auto"><div class="card">
+    <div class="card-header bg-primary text-white"><h4 class="mb-0">{{ 'Modifier la section' if section else 'Nouvelle section' }}</h4></div>
+    <div class="card-body"><form method="POST">
+        <div class="mb-3"><label for="id_niveau" class="form-label">Niveau <span class="text-danger">*</span></label><select class="form-select" id="id_niveau" name="id_niveau" required><option value="">Sélectionner...</option>{% for niveau in niveaux %}<option value="{{ niveau.id_niveau }}" {% if section and section.id_niveau == niveau.id_niveau %}selected{% endif %}>{{ niveau.code_niveau }} — {{ niveau.libelle }}</option>{% endfor %}</select></div>
+        <div class="row">
+            <div class="col-md-6 mb-3"><label for="code_section" class="form-label">Code <span class="text-danger">*</span></label><input type="text" class="form-control" id="code_section" name="code_section" maxlength="30" value="{{ section.code_section if section else '' }}" required></div>
+            <div class="col-md-6 mb-3"><label for="effectif" class="form-label">Effectif</label><input type="number" class="form-control" id="effectif" name="effectif" min="0" value="{{ section.effectif if section and section.effectif is not none else '' }}"></div>
+        </div>
+        <div class="mb-3"><label for="libelle" class="form-label">Libellé <span class="text-danger">*</span></label><input type="text" class="form-control" id="libelle" name="libelle" maxlength="150" value="{{ section.libelle if section else '' }}" required></div>
+        {% if section %}<div class="form-check mb-3"><input type="checkbox" class="form-check-input" id="actif" name="actif" {% if section.actif %}checked{% endif %}><label for="actif" class="form-check-label">Section active</label></div>{% endif %}
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <a href="{{ url_for('main.niveaux_sections') }}" class="btn btn-secondary">Annuler</a>
+    </form></div>
+</div></div></div>
+{% endblock %}

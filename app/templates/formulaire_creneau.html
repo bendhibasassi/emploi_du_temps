@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier le créneau' if creneau else 'Nouveau créneau' }}{% endblock %}
+{% block content %}
+<div class="row"><div class="col-lg-7 mx-auto"><div class="card">
+    <div class="card-header bg-primary text-white"><h4 class="mb-0">{{ 'Modifier le créneau' if creneau else 'Nouveau créneau' }}</h4></div>
+    <div class="card-body"><form method="POST">
+        <div class="row">
+            <div class="col-md-4 mb-3"><label for="heure_debut" class="form-label">Heure de début <span class="text-danger">*</span></label><input type="time" class="form-control" id="heure_debut" name="heure_debut" value="{{ creneau.heure_debut.strftime('%H:%M') if creneau else '' }}" required></div>
+            <div class="col-md-4 mb-3"><label for="heure_fin" class="form-label">Heure de fin <span class="text-danger">*</span></label><input type="time" class="form-control" id="heure_fin" name="heure_fin" value="{{ creneau.heure_fin.strftime('%H:%M') if creneau else '' }}" required></div>
+            <div class="col-md-4 mb-3"><label for="ordre" class="form-label">Ordre <span class="text-danger">*</span></label><input type="number" class="form-control" id="ordre" name="ordre" min="1" value="{{ creneau.ordre if creneau else '' }}" required></div>
+        </div>
+        {% if creneau %}<div class="form-check mb-3"><input type="checkbox" class="form-check-input" id="actif" name="actif" {% if creneau.actif %}checked{% endif %}><label for="actif" class="form-check-label">Créneau actif</label></div>{% endif %}
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <a href="{{ url_for('main.creneaux') }}" class="btn btn-secondary">Annuler</a>
+    </form></div>
+</div></div></div>
+{% endblock %}

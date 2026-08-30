@@ -16,18 +16,7 @@ from app.models import (
 from datetime import datetime
 
 
-CODES_AMPHIS = ('A0', 'A1', 'A2', 'A3', 'BIO1', 'BIO2')
-CODES_GRANDES_SALLES = (
-    'DSP1', 'DSP2', 'DSP3', 'DSP4', 'DSP5', 'DSP6', 'DSP7',
-    'DSP22', 'DSP23', 'DSP24'
-)
-CODES_PETITES_SALLES = tuple(f'DSP{numero}' for numero in range(8, 22))
-
-REFERENTIEL_SALLES = {
-    **{code: (f'Amphithéâtre {code}', 'AMPHI') for code in CODES_AMPHIS},
-    **{code: (code, 'GRANDE_SALLE') for code in CODES_GRANDES_SALLES},
-    **{code: (code, 'PETITE_SALLE') for code in CODES_PETITES_SALLES},
-}
+TYPES_SALLE = ('AMPHI', 'GRANDE_SALLE', 'PETITE_SALLE')
 
 
 def ajouter_historique(utilisateur, action, type_objet, id_objet,
@@ -127,9 +116,7 @@ def cle_tri_naturel_salle(salle):
 
 def cle_priorite_salle(salle, type_enseignement):
     """Place les types conseillés en premier sans exclure aucune salle."""
-    if salle.code_salle not in REFERENTIEL_SALLES:
-        priorite = 3
-    elif type_enseignement == 'CM':
+    if type_enseignement == 'CM':
         priorite = {'AMPHI': 0, 'GRANDE_SALLE': 1, 'PETITE_SALLE': 2}.get(
             salle.type_salle, 3
         )
@@ -138,14 +125,6 @@ def cle_priorite_salle(salle, type_enseignement):
             salle.type_salle, 3
         )
     return priorite, cle_tri_naturel_salle(salle)
-
-
-def codes_salles_officielles_disponibles():
-    """Retourne les codes officiels qui ne sont pas encore enregistrés."""
-    codes_utilises = {
-        code for code, in db.session.query(Salle.code_salle).all()
-    }
-    return [code for code in REFERENTIEL_SALLES if code not in codes_utilises]
 
 
 def determiner_annee_consultation():
@@ -371,11 +350,262 @@ def niveaux_sections():
     return render_template('niveaux_sections.html', niveaux=niveaux_list)
 
 
+@main.route('/niveau/ajouter', methods=['GET', 'POST'])
+def ajouter_niveau():
+    """Ajouter un niveau au référentiel."""
+    if request.method == 'POST':
+        code_niveau = request.form.get('code_niveau', '').strip()
+        cycle = request.form.get('cycle', '').strip()
+        specialite = request.form.get('specialite', '').strip()
+        annee_etude = request.form.get('annee_etude', '').strip()
+        libelle = request.form.get('libelle', '').strip()
+
+        if not all([code_niveau, cycle, specialite, annee_etude, libelle]):
+            flash('Tous les champs du niveau sont obligatoires.', 'danger')
+            return redirect(url_for('main.ajouter_niveau'))
+        if Niveau.query.filter_by(code_niveau=code_niveau).first():
+            flash(f'Le code niveau {code_niveau} existe déjà.', 'danger')
+            return redirect(url_for('main.ajouter_niveau'))
+        if Niveau.query.filter_by(libelle=libelle).first():
+            flash(f'Le libellé {libelle} existe déjà.', 'danger')
+            return redirect(url_for('main.ajouter_niveau'))
+
+        niveau = Niveau(
+            code_niveau=code_niveau,
+            cycle=cycle,
+            specialite=specialite,
+            annee_etude=annee_etude,
+            libelle=libelle,
+            actif=True
+        )
+        db.session.add(niveau)
+        db.session.commit()
+        flash(f'Niveau {code_niveau} ajouté avec succès.', 'success')
+        return redirect(url_for('main.niveaux_sections'))
+
+    return render_template('formulaire_niveau.html', niveau=None)
+
+
+@main.route('/niveau/<int:id_niveau>/modifier', methods=['GET', 'POST'])
+def modifier_niveau(id_niveau):
+    """Modifier un niveau existant."""
+    niveau = Niveau.query.get_or_404(id_niveau)
+    if request.method == 'POST':
+        code_niveau = request.form.get('code_niveau', '').strip()
+        cycle = request.form.get('cycle', '').strip()
+        specialite = request.form.get('specialite', '').strip()
+        annee_etude = request.form.get('annee_etude', '').strip()
+        libelle = request.form.get('libelle', '').strip()
+
+        if not all([code_niveau, cycle, specialite, annee_etude, libelle]):
+            flash('Tous les champs du niveau sont obligatoires.', 'danger')
+            return redirect(url_for('main.modifier_niveau', id_niveau=id_niveau))
+        if Niveau.query.filter(
+            Niveau.code_niveau == code_niveau,
+            Niveau.id_niveau != id_niveau
+        ).first():
+            flash(f'Le code niveau {code_niveau} existe déjà.', 'danger')
+            return redirect(url_for('main.modifier_niveau', id_niveau=id_niveau))
+        if Niveau.query.filter(
+            Niveau.libelle == libelle,
+            Niveau.id_niveau != id_niveau
+        ).first():
+            flash(f'Le libellé {libelle} existe déjà.', 'danger')
+            return redirect(url_for('main.modifier_niveau', id_niveau=id_niveau))
+
+        niveau.code_niveau = code_niveau
+        niveau.cycle = cycle
+        niveau.specialite = specialite
+        niveau.annee_etude = annee_etude
+        niveau.libelle = libelle
+        niveau.actif = request.form.get('actif') == 'on'
+        db.session.commit()
+        flash(f'Niveau {code_niveau} modifié avec succès.', 'success')
+        return redirect(url_for('main.niveaux_sections'))
+
+    return render_template('formulaire_niveau.html', niveau=niveau)
+
+
+@main.route('/section/ajouter', methods=['GET', 'POST'])
+def ajouter_section():
+    """Ajouter une section à un niveau existant."""
+    if request.method == 'POST':
+        id_niveau = request.form.get('id_niveau', type=int)
+        code_section = request.form.get('code_section', '').strip()
+        libelle = request.form.get('libelle', '').strip()
+        effectif_texte = request.form.get('effectif', '').strip()
+
+        if not id_niveau or not code_section or not libelle:
+            flash('Niveau, code et libellé sont obligatoires.', 'danger')
+            return redirect(url_for('main.ajouter_section'))
+        if Niveau.query.get(id_niveau) is None:
+            flash('Le niveau sélectionné est invalide.', 'danger')
+            return redirect(url_for('main.ajouter_section'))
+        try:
+            effectif = int(effectif_texte) if effectif_texte else 0
+        except ValueError:
+            flash('L\'effectif doit être un nombre entier.', 'danger')
+            return redirect(url_for('main.ajouter_section'))
+        if effectif < 0:
+            flash('L\'effectif ne peut pas être négatif.', 'danger')
+            return redirect(url_for('main.ajouter_section'))
+        if Section.query.filter_by(
+            id_niveau=id_niveau, code_section=code_section
+        ).first():
+            flash('Ce code de section existe déjà pour ce niveau.', 'danger')
+            return redirect(url_for('main.ajouter_section'))
+
+        db.session.add(Section(
+            id_niveau=id_niveau,
+            code_section=code_section,
+            libelle=libelle,
+            effectif=effectif,
+            actif=True
+        ))
+        db.session.commit()
+        flash(f'Section {code_section} ajoutée avec succès.', 'success')
+        return redirect(url_for('main.niveaux_sections'))
+
+    niveaux = Niveau.query.order_by(Niveau.code_niveau).all()
+    return render_template(
+        'formulaire_section.html', section=None, niveaux=niveaux
+    )
+
+
+@main.route('/section/<int:id_section>/modifier', methods=['GET', 'POST'])
+def modifier_section(id_section):
+    """Modifier une section existante."""
+    section = Section.query.get_or_404(id_section)
+    if request.method == 'POST':
+        id_niveau = request.form.get('id_niveau', type=int)
+        code_section = request.form.get('code_section', '').strip()
+        libelle = request.form.get('libelle', '').strip()
+        effectif_texte = request.form.get('effectif', '').strip()
+
+        if not id_niveau or not code_section or not libelle:
+            flash('Niveau, code et libellé sont obligatoires.', 'danger')
+            return redirect(url_for('main.modifier_section', id_section=id_section))
+        if Niveau.query.get(id_niveau) is None:
+            flash('Le niveau sélectionné est invalide.', 'danger')
+            return redirect(url_for('main.modifier_section', id_section=id_section))
+        try:
+            effectif = int(effectif_texte) if effectif_texte else 0
+        except ValueError:
+            flash('L\'effectif doit être un nombre entier.', 'danger')
+            return redirect(url_for('main.modifier_section', id_section=id_section))
+        if effectif < 0:
+            flash('L\'effectif ne peut pas être négatif.', 'danger')
+            return redirect(url_for('main.modifier_section', id_section=id_section))
+        if Section.query.filter(
+            Section.id_niveau == id_niveau,
+            Section.code_section == code_section,
+            Section.id_section != id_section
+        ).first():
+            flash('Ce code de section existe déjà pour ce niveau.', 'danger')
+            return redirect(url_for('main.modifier_section', id_section=id_section))
+
+        section.id_niveau = id_niveau
+        section.code_section = code_section
+        section.libelle = libelle
+        section.effectif = effectif
+        section.actif = request.form.get('actif') == 'on'
+        db.session.commit()
+        flash(f'Section {code_section} modifiée avec succès.', 'success')
+        return redirect(url_for('main.niveaux_sections'))
+
+    niveaux = Niveau.query.order_by(Niveau.code_niveau).all()
+    return render_template(
+        'formulaire_section.html', section=section, niveaux=niveaux
+    )
+
+
 @main.route('/creneaux')
 def creneaux():
     """Consulter les créneaux horaires configurés."""
     creneaux_list = Creneau.query.order_by(Creneau.ordre).all()
     return render_template('creneaux.html', creneaux=creneaux_list)
+
+
+@main.route('/creneau/ajouter', methods=['GET', 'POST'])
+def ajouter_creneau():
+    """Ajouter un créneau horaire."""
+    if request.method == 'POST':
+        heure_debut_texte = request.form.get('heure_debut', '').strip()
+        heure_fin_texte = request.form.get('heure_fin', '').strip()
+        ordre = request.form.get('ordre', type=int)
+
+        if not heure_debut_texte or not heure_fin_texte or ordre is None:
+            flash('Heures et ordre sont obligatoires.', 'danger')
+            return redirect(url_for('main.ajouter_creneau'))
+        try:
+            heure_debut = datetime.strptime(heure_debut_texte, '%H:%M').time()
+            heure_fin = datetime.strptime(heure_fin_texte, '%H:%M').time()
+        except ValueError:
+            flash('Les heures saisies sont invalides.', 'danger')
+            return redirect(url_for('main.ajouter_creneau'))
+        if heure_debut >= heure_fin:
+            flash('L\'heure de début doit précéder l\'heure de fin.', 'danger')
+            return redirect(url_for('main.ajouter_creneau'))
+        if ordre < 1:
+            flash('L\'ordre doit être supérieur à zéro.', 'danger')
+            return redirect(url_for('main.ajouter_creneau'))
+        if Creneau.query.filter_by(ordre=ordre).first():
+            flash(f'L\'ordre {ordre} est déjà utilisé.', 'danger')
+            return redirect(url_for('main.ajouter_creneau'))
+
+        db.session.add(Creneau(
+            heure_debut=heure_debut,
+            heure_fin=heure_fin,
+            ordre=ordre,
+            actif=True
+        ))
+        db.session.commit()
+        flash('Créneau ajouté avec succès.', 'success')
+        return redirect(url_for('main.creneaux'))
+
+    return render_template('formulaire_creneau.html', creneau=None)
+
+
+@main.route('/creneau/<int:id_creneau>/modifier', methods=['GET', 'POST'])
+def modifier_creneau(id_creneau):
+    """Modifier un créneau horaire."""
+    creneau = Creneau.query.get_or_404(id_creneau)
+    if request.method == 'POST':
+        heure_debut_texte = request.form.get('heure_debut', '').strip()
+        heure_fin_texte = request.form.get('heure_fin', '').strip()
+        ordre = request.form.get('ordre', type=int)
+
+        if not heure_debut_texte or not heure_fin_texte or ordre is None:
+            flash('Heures et ordre sont obligatoires.', 'danger')
+            return redirect(url_for('main.modifier_creneau', id_creneau=id_creneau))
+        try:
+            heure_debut = datetime.strptime(heure_debut_texte, '%H:%M').time()
+            heure_fin = datetime.strptime(heure_fin_texte, '%H:%M').time()
+        except ValueError:
+            flash('Les heures saisies sont invalides.', 'danger')
+            return redirect(url_for('main.modifier_creneau', id_creneau=id_creneau))
+        if heure_debut >= heure_fin:
+            flash('L\'heure de début doit précéder l\'heure de fin.', 'danger')
+            return redirect(url_for('main.modifier_creneau', id_creneau=id_creneau))
+        if ordre < 1:
+            flash('L\'ordre doit être supérieur à zéro.', 'danger')
+            return redirect(url_for('main.modifier_creneau', id_creneau=id_creneau))
+        if Creneau.query.filter(
+            Creneau.ordre == ordre,
+            Creneau.id_creneau != id_creneau
+        ).first():
+            flash(f'L\'ordre {ordre} est déjà utilisé.', 'danger')
+            return redirect(url_for('main.modifier_creneau', id_creneau=id_creneau))
+
+        creneau.heure_debut = heure_debut
+        creneau.heure_fin = heure_fin
+        creneau.ordre = ordre
+        creneau.actif = request.form.get('actif') == 'on'
+        db.session.commit()
+        flash('Créneau modifié avec succès.', 'success')
+        return redirect(url_for('main.creneaux'))
+
+    return render_template('formulaire_creneau.html', creneau=creneau)
 
 
 @main.route('/annees-universitaires')
@@ -1114,7 +1344,7 @@ def supprimer_professeur(id_professeur):
 @main.route('/salles')
 def salles():
     """Liste des salles"""
-    salles_list = Salle.query.filter_by(actif=True).all()
+    salles_list = Salle.query.order_by(Salle.code_salle).all()
     return render_template('salles.html', salles=salles_list)
 
 
@@ -1123,14 +1353,13 @@ def ajouter_salle():
     """Ajouter une salle"""
     if request.method == 'POST':
         code_salle = request.form.get('code_salle', '').strip()
+        nom_salle = request.form.get('nom_salle', '').strip()
+        type_salle = request.form.get('type_salle', '').strip()
         batiment = request.form.get('batiment', '').strip()
 
-        definition_salle = REFERENTIEL_SALLES.get(code_salle)
-        if definition_salle is None:
-            flash('❌ Code de salle invalide !', 'danger')
+        if not code_salle or not nom_salle or type_salle not in TYPES_SALLE:
+            flash('❌ Code, nom et type de salle valides sont obligatoires !', 'danger')
             return redirect(url_for('main.ajouter_salle'))
-
-        nom_salle, type_salle = definition_salle
 
         try:
             capacite = convertir_capacite_salle(request.form.get('capacite'))
@@ -1169,10 +1398,7 @@ def ajouter_salle():
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
-    return render_template(
-        'ajouter_salle.html',
-        codes_salles=codes_salles_officielles_disponibles()
-    )
+    return render_template('ajouter_salle.html', types_salle=TYPES_SALLE)
 
 
 @main.route('/salle/<int:id_salle>/modifier', methods=['GET', 'POST'])
@@ -1183,34 +1409,32 @@ def modifier_salle(id_salle):
     if request.method == 'POST':
         ancienne_valeur = f"Code: {salle.code_salle}, Nom: {salle.nom_salle}, Capacité: {salle.capacite}"
 
+        code_salle = request.form.get('code_salle', '').strip()
+        nom_salle = request.form.get('nom_salle', '').strip()
+        type_salle = request.form.get('type_salle', '').strip()
+
+        if (not code_salle or not nom_salle or
+                (type_salle not in TYPES_SALLE and type_salle != salle.type_salle)):
+            flash('❌ Code, nom et type de salle valides sont obligatoires !', 'danger')
+            return redirect(url_for('main.modifier_salle', id_salle=id_salle))
+
+        code_deja_utilise = Salle.query.filter(
+            Salle.code_salle == code_salle,
+            Salle.id_salle != salle.id_salle
+        ).first()
+        if code_deja_utilise:
+            flash(f'❌ La salle {code_salle} existe déjà !', 'danger')
+            return redirect(url_for('main.modifier_salle', id_salle=id_salle))
+
         try:
             capacite = convertir_capacite_salle(request.form.get('capacite'))
         except ValueError as exc:
             flash(f'❌ {exc}', 'danger')
             return redirect(url_for('main.modifier_salle', id_salle=id_salle))
 
-        definition_salle = REFERENTIEL_SALLES.get(salle.code_salle)
-        if definition_salle is None:
-            nouveau_code = request.form.get('code_salle', '').strip()
-            if nouveau_code:
-                definition_salle = REFERENTIEL_SALLES.get(nouveau_code)
-                code_deja_utilise = Salle.query.filter(
-                    Salle.code_salle == nouveau_code,
-                    Salle.id_salle != salle.id_salle
-                ).first()
-                if definition_salle is None or code_deja_utilise:
-                    flash('❌ Code de salle invalide ou déjà utilisé !', 'danger')
-                    return redirect(url_for('main.modifier_salle', id_salle=id_salle))
-
-                salle.code_salle = nouveau_code
-                salle.nom_salle, salle.type_salle = definition_salle
-        else:
-            code_soumis = request.form.get('code_salle', '').strip()
-            if code_soumis and code_soumis != salle.code_salle:
-                flash('❌ Le code d’une salle officielle ne peut pas être modifié !', 'danger')
-                return redirect(url_for('main.modifier_salle', id_salle=id_salle))
-            salle.nom_salle, salle.type_salle = definition_salle
-
+        salle.code_salle = code_salle
+        salle.nom_salle = nom_salle
+        salle.type_salle = type_salle
         salle.capacite = capacite
         salle.batiment = request.form.get('batiment', '').strip() or None
         salle.actif = request.form.get('actif') == 'on'
@@ -1233,11 +1457,11 @@ def modifier_salle(id_salle):
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
+    types_salle = list(TYPES_SALLE)
+    if salle.type_salle not in types_salle:
+        types_salle.append(salle.type_salle)
     return render_template(
-        'modifier_salle.html',
-        salle=salle,
-        code_officiel=salle.code_salle in REFERENTIEL_SALLES,
-        codes_salles=codes_salles_officielles_disponibles()
+        'modifier_salle.html', salle=salle, types_salle=types_salle
     )
 
 
@@ -1284,8 +1508,6 @@ def groupes():
         Section, Groupe.id_section == Section.id_section
     ).join(
         Niveau, Section.id_niveau == Niveau.id_niveau
-    ).filter(
-        Groupe.actif == True
     ).all()
 
     return render_template('groupes.html', groupes=groupes_list)
@@ -1298,11 +1520,22 @@ def ajouter_groupe():
         id_section = request.form.get('id_section', type=int)
         code_groupe = request.form.get('code_groupe', '').strip()
         nom_groupe = request.form.get('nom_groupe', '').strip()
-        effectif = request.form.get('effectif', type=int)
+        effectif_texte = request.form.get('effectif', '').strip()
 
         # Vérifications
         if not id_section or not code_groupe or not nom_groupe:
             flash('❌ La section, le code et le nom sont obligatoires !', 'danger')
+            return redirect(url_for('main.ajouter_groupe'))
+        if Section.query.get(id_section) is None:
+            flash('❌ La section sélectionnée est invalide !', 'danger')
+            return redirect(url_for('main.ajouter_groupe'))
+        try:
+            effectif = int(effectif_texte) if effectif_texte else None
+        except ValueError:
+            flash('❌ L\'effectif doit être un nombre entier !', 'danger')
+            return redirect(url_for('main.ajouter_groupe'))
+        if effectif is not None and effectif < 0:
+            flash('❌ L\'effectif ne peut pas être négatif !', 'danger')
             return redirect(url_for('main.ajouter_groupe'))
 
         # Vérifier si le groupe existe déjà dans cette section
@@ -1320,7 +1553,7 @@ def ajouter_groupe():
             id_section=id_section,
             code_groupe=code_groupe,
             nom_groupe=nom_groupe,
-            effectif=effectif if effectif else None,
+            effectif=effectif,
             actif=True
         )
 
@@ -1357,10 +1590,37 @@ def modifier_groupe(id_groupe):
     if request.method == 'POST':
         ancienne_valeur = f"Code: {groupe.code_groupe}, Nom: {groupe.nom_groupe}, Effectif: {groupe.effectif}"
 
-        groupe.id_section = request.form.get('id_section', type=int) or groupe.id_section
-        groupe.code_groupe = request.form.get('code_groupe', groupe.code_groupe).strip()
-        groupe.nom_groupe = request.form.get('nom_groupe', groupe.nom_groupe).strip()
-        groupe.effectif = request.form.get('effectif', type=int) or None
+        id_section = request.form.get('id_section', type=int)
+        code_groupe = request.form.get('code_groupe', '').strip()
+        nom_groupe = request.form.get('nom_groupe', '').strip()
+        effectif_texte = request.form.get('effectif', '').strip()
+
+        if not id_section or not code_groupe or not nom_groupe:
+            flash('❌ La section, le code et le nom sont obligatoires !', 'danger')
+            return redirect(url_for('main.modifier_groupe', id_groupe=id_groupe))
+        if Section.query.get(id_section) is None:
+            flash('❌ La section sélectionnée est invalide !', 'danger')
+            return redirect(url_for('main.modifier_groupe', id_groupe=id_groupe))
+        try:
+            effectif = int(effectif_texte) if effectif_texte else None
+        except ValueError:
+            flash('❌ L\'effectif doit être un nombre entier !', 'danger')
+            return redirect(url_for('main.modifier_groupe', id_groupe=id_groupe))
+        if effectif is not None and effectif < 0:
+            flash('❌ L\'effectif ne peut pas être négatif !', 'danger')
+            return redirect(url_for('main.modifier_groupe', id_groupe=id_groupe))
+        if Groupe.query.filter(
+            Groupe.id_section == id_section,
+            Groupe.code_groupe == code_groupe,
+            Groupe.id_groupe != id_groupe
+        ).first():
+            flash(f'❌ Le groupe {code_groupe} existe déjà dans cette section !', 'danger')
+            return redirect(url_for('main.modifier_groupe', id_groupe=id_groupe))
+
+        groupe.id_section = id_section
+        groupe.code_groupe = code_groupe
+        groupe.nom_groupe = nom_groupe
+        groupe.effectif = effectif
         groupe.actif = request.form.get('actif') == 'on'
 
         try:
@@ -1384,7 +1644,10 @@ def modifier_groupe(id_groupe):
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
-    sections = Section.query.filter_by(actif=True).all()
+    sections = Section.query.filter(or_(
+        Section.actif.is_(True),
+        Section.id_section == groupe.id_section
+    )).all()
     return render_template('modifier_groupe.html', groupe=groupe, sections=sections)
 
 

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier le niveau' if niveau else 'Nouveau niveau' }}{% endblock %}
+{% block content %}
+<div class="row"><div class="col-lg-7 mx-auto"><div class="card">
+    <div class="card-header bg-primary text-white"><h4 class="mb-0">{{ 'Modifier le niveau' if niveau else 'Nouveau niveau' }}</h4></div>
+    <div class="card-body"><form method="POST">
+        <div class="row">
+            <div class="col-md-6 mb-3"><label for="code_niveau" class="form-label">Code <span class="text-danger">*</span></label><input type="text" class="form-control" id="code_niveau" name="code_niveau" maxlength="30" value="{{ niveau.code_niveau if niveau else '' }}" required></div>
+            <div class="col-md-6 mb-3"><label for="cycle" class="form-label">Cycle <span class="text-danger">*</span></label><input type="text" class="form-control" id="cycle" name="cycle" maxlength="20" value="{{ niveau.cycle if niveau else '' }}" required></div>
+            <div class="col-md-6 mb-3"><label for="specialite" class="form-label">Spécialité <span class="text-danger">*</span></label><input type="text" class="form-control" id="specialite" name="specialite" maxlength="150" value="{{ niveau.specialite if niveau else '' }}" required></div>
+            <div class="col-md-6 mb-3"><label for="annee_etude" class="form-label">Année d'étude <span class="text-danger">*</span></label><input type="text" class="form-control" id="annee_etude" name="annee_etude" maxlength="10" value="{{ niveau.annee_etude if niveau else '' }}" required></div>
+        </div>
+        <div class="mb-3"><label for="libelle" class="form-label">Libellé <span class="text-danger">*</span></label><input type="text" class="form-control" id="libelle" name="libelle" maxlength="200" value="{{ niveau.libelle if niveau else '' }}" required></div>
+        {% if niveau %}<div class="form-check mb-3"><input type="checkbox" class="form-check-input" id="actif" name="actif" {% if niveau.actif %}checked{% endif %}><label for="actif" class="form-check-label">Niveau actif</label></div>{% endif %}
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <a href="{{ url_for('main.niveaux_sections') }}" class="btn btn-secondary">Annuler</a>
+    </form></div>
+</div></div></div>
+{% endblock %}

@@ -11,17 +11,22 @@
             <div class="card-body">
                 <form method="POST">
                     <div class="mb-3">
-                        <label for="code_salle" class="form-label">Salle <span class="text-danger">*</span></label>
-                        <select name="code_salle" id="code_salle" class="form-select" required>
-                            <option value="">Choisir une salle...</option>
-                            {% for code in codes_salles %}
-                                <option value="{{ code }}">{{ code }}</option>
-                            {% endfor %}
-                        </select>
-                        <div class="form-text">Le nom et le type sont déterminés automatiquement.</div>
+                        <label for="code_salle" class="form-label">Code <span class="text-danger">*</span></label>
+                        <input type="text" name="code_salle" id="code_salle" class="form-control" maxlength="30" required>
                     </div>
 
                     <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="nom_salle" class="form-label">Nom <span class="text-danger">*</span></label>
+                            <input type="text" name="nom_salle" id="nom_salle" class="form-control" maxlength="150" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="type_salle" class="form-label">Type <span class="text-danger">*</span></label>
+                            <select name="type_salle" id="type_salle" class="form-select" required>
+                                <option value="">Sélectionner...</option>
+                                {% for type in types_salle %}<option value="{{ type }}">{{ type }}</option>{% endfor %}
+                            </select>
+                        </div>
                         <div class="col-md-6 mb-3">
                             <label for="capacite" class="form-label">Capacité</label>
                             <input type="number" name="capacite" id="capacite" class="form-control"

@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Créneaux horaires{% endblock %}
 {% block content %}
-<div class="page-heading"><div><h1>Créneaux</h1><p>Configuration des plages horaires utilisées pour le planning.</p></div></div>
+<div class="page-heading"><div><h1>Créneaux</h1><p>Configuration des plages horaires utilisées pour le planning.</p></div><a href="{{ url_for('main.ajouter_creneau') }}" class="btn btn-primary"><i class="fas fa-plus me-1"></i> Nouveau créneau</a></div>
 {% if creneaux %}
 <div class="table-responsive compact-table">
     <table class="table table-hover">
-        <thead><tr><th>Ordre</th><th>Heure de début</th><th>Heure de fin</th><th>Durée</th><th>Statut</th></tr></thead>
-        <tbody>{% for creneau in creneaux %}<tr><td><span class="badge bg-primary">{{ creneau.ordre }}</span></td><td><strong>{{ creneau.heure_debut.strftime('%H:%M') }}</strong></td><td><strong>{{ creneau.heure_fin.strftime('%H:%M') }}</strong></td><td>{{ ((creneau.heure_fin.hour * 60 + creneau.heure_fin.minute) - (creneau.heure_debut.hour * 60 + creneau.heure_debut.minute)) }} min</td><td><span class="badge {% if creneau.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Actif' if creneau.actif else 'Inactif' }}</span></td></tr>{% endfor %}</tbody>
+        <thead><tr><th>Ordre</th><th>Heure de début</th><th>Heure de fin</th><th>Durée</th><th>Statut</th><th>Action</th></tr></thead>
+        <tbody>{% for creneau in creneaux %}<tr><td><span class="badge bg-primary">{{ creneau.ordre }}</span></td><td><strong>{{ creneau.heure_debut.strftime('%H:%M') }}</strong></td><td><strong>{{ creneau.heure_fin.strftime('%H:%M') }}</strong></td><td>{{ ((creneau.heure_fin.hour * 60 + creneau.heure_fin.minute) - (creneau.heure_debut.hour * 60 + creneau.heure_debut.minute)) }} min</td><td><span class="badge {% if creneau.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Actif' if creneau.actif else 'Inactif' }}</span></td><td><a href="{{ url_for('main.modifier_creneau', id_creneau=creneau.id_creneau) }}" class="btn btn-sm btn-warning"><i class="fas fa-pen"></i><span class="visually-hidden"> Modifier</span></a></td></tr>{% endfor %}</tbody>
     </table>
 </div>
 {% else %}<div class="alert alert-info">Aucun créneau configuré.</div>{% endif %}

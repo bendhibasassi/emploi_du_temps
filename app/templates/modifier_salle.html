@@ -11,23 +11,23 @@
             <div class="card-body">
                 <form method="POST">
                     <div class="mb-3">
-                        <label class="form-label">Salle</label>
-                        {% if code_officiel %}
-                            <div class="form-control-plaintext">
-                                <strong>{{ salle.code_salle }}</strong> — {{ salle.nom_salle }} — {{ salle.type_salle }}
-                            </div>
-                        {% else %}
-                            <select name="code_salle" id="code_salle" class="form-select">
-                                <option value="">Conserver provisoirement {{ salle.code_salle }}</option>
-                                {% for code in codes_salles %}
-                                    <option value="{{ code }}">{{ code }}</option>
-                                {% endfor %}
-                            </select>
-                            <div class="form-text">Choisir une correspondance uniquement lorsqu'elle est confirmée.</div>
-                        {% endif %}
+                        <label for="code_salle" class="form-label">Code <span class="text-danger">*</span></label>
+                        <input type="text" name="code_salle" id="code_salle" class="form-control"
+                               value="{{ salle.code_salle }}" maxlength="30" required>
                     </div>
 
                     <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="nom_salle" class="form-label">Nom <span class="text-danger">*</span></label>
+                            <input type="text" name="nom_salle" id="nom_salle" class="form-control"
+                                   value="{{ salle.nom_salle }}" maxlength="150" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="type_salle" class="form-label">Type <span class="text-danger">*</span></label>
+                            <select name="type_salle" id="type_salle" class="form-select" required>
+                                {% for type in types_salle %}<option value="{{ type }}" {% if salle.type_salle == type %}selected{% endif %}>{{ type }}</option>{% endfor %}
+                            </select>
+                        </div>
                         <div class="col-md-6 mb-3">
                             <label for="capacite" class="form-label">Capacité</label>
                             <input type="number" name="capacite" id="capacite" class="form-control"

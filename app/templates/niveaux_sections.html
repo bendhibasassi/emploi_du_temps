@@ -3,7 +3,11 @@
 {% block content %}
 <div class="page-heading">
     <div><h1>Niveaux et sections</h1><p>Hiérarchie du référentiel pédagogique.</p></div>
-    <a href="{{ url_for('main.groupes') }}" class="btn btn-secondary"><i class="fas fa-people-group me-1"></i> Voir les groupes</a>
+    <div class="page-actions">
+        <a href="{{ url_for('main.ajouter_niveau') }}" class="btn btn-primary"><i class="fas fa-plus me-1"></i> Nouveau niveau</a>
+        <a href="{{ url_for('main.ajouter_section') }}" class="btn btn-secondary"><i class="fas fa-plus me-1"></i> Nouvelle section</a>
+        <a href="{{ url_for('main.groupes') }}" class="btn btn-secondary"><i class="fas fa-people-group me-1"></i> Voir les groupes</a>
+    </div>
 </div>
 <div class="accordion hierarchy" id="niveauxAccordion">
 {% for niveau in niveaux %}
@@ -17,6 +21,9 @@
         </h2>
         <div id="niveau{{ niveau.id_niveau }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#niveauxAccordion">
             <div class="accordion-body">
+                <div class="mb-3">
+                    <a href="{{ url_for('main.modifier_niveau', id_niveau=niveau.id_niveau) }}" class="btn btn-sm btn-outline-warning"><i class="fas fa-pen me-1"></i> Modifier le niveau</a>
+                </div>
                 {% if niveau.sections %}
                     <div class="row g-3">
                     {% for section in niveau.sections|sort(attribute='code_section') %}
@@ -24,6 +31,7 @@
                             <article class="section-card">
                                 <div class="d-flex justify-content-between gap-2"><strong>{{ section.code_section }} — {{ section.libelle }}</strong><span class="badge {% if section.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Active' if section.actif else 'Inactive' }}</span></div>
                                 <p>{{ section.effectif or 0 }} étudiants</p>
+                                <a href="{{ url_for('main.modifier_section', id_section=section.id_section) }}" class="btn btn-sm btn-outline-warning mb-2"><i class="fas fa-pen me-1"></i> Modifier</a>
                                 {% if section.groupes %}<ul>{% for groupe in section.groupes|sort(attribute='code_groupe') %}<li>{{ groupe.code_groupe }} — {{ groupe.nom_groupe }} <small>({{ groupe.effectif or 0 }})</small></li>{% endfor %}</ul>{% else %}<small class="text-muted">Aucun groupe</small>{% endif %}
                             </article>
                         </div>
