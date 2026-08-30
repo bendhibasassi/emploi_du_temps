@@ -164,7 +164,7 @@ class Seance(db.Model):
     __tablename__ = "tbl_seances"
     
     id_seance = db.Column(db.Integer, primary_key=True)
-    id_annee = db.Column(db.Integer, nullable=False)
+    id_annee = db.Column(db.Integer, db.ForeignKey('tbl_annees_univ.id_annee'), nullable=False)
     id_affectation = db.Column(db.Integer, db.ForeignKey('tbl_affectations.id_affectation'), nullable=False)
     jour = db.Column(db.Integer, nullable=False)
     id_creneau = db.Column(db.Integer, db.ForeignKey('tbl_creneaux.id_creneau'), nullable=False)
