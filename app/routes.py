@@ -301,9 +301,10 @@ def remplacer_professeur_affectation(session, affectation, professeur):
             'Seule une affectation actuellement liée à un profil « À affecter » '
             'peut utiliser ce workflow.'
         )
-    if professeur.est_placeholder or not professeur.actif:
+    if (professeur.est_placeholder or not professeur.actif or
+            professeur.statut != 'Vacataire'):
         raise ValueError(
-            'Le nouveau professeur doit être un enseignant réel et actif.'
+            'Le nouveau professeur doit être un vacataire réel et actif.'
         )
 
     conflits = verifier_conflits_attribution_professeur(
@@ -685,6 +686,7 @@ def attribuer_professeur_affectation(id_affectation):
     professeurs = Professeur.query.filter(
         ~Professeur.est_placeholder,
         Professeur.actif.is_(True),
+        Professeur.statut == 'Vacataire',
     ).order_by(Professeur.nom, Professeur.prenom).all()
 
     if request.method == 'POST':
