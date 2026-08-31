@@ -104,19 +104,20 @@
                     <span class="badge {% if affectation.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Active' if affectation.actif else 'Inactive' }}</span>
                     {% if not affectation.seances %}<br><span class="badge bg-warning text-dark mt-1">Sans séance</span>{% endif %}
                 </td>
-                <td class="text-nowrap">
+                <td>
+                    <div class="d-grid gap-1">
                     <a href="{{ url_for('main.modifier_affectation', id_affectation=affectation.id_affectation) }}" class="btn btn-sm btn-outline-primary">Modifier</a>
-                    <form method="POST" action="{{ url_for('main.changer_statut_affectation', id_affectation=affectation.id_affectation) }}" class="d-inline" onsubmit="return confirm('{{ 'Désactiver' if affectation.actif else 'Réactiver' }} cette affectation ?');">
+                    <form method="POST" action="{{ url_for('main.changer_statut_affectation', id_affectation=affectation.id_affectation) }}" class="d-grid" onsubmit="return confirm('{{ 'Désactiver' if affectation.actif else 'Réactiver' }} cette affectation ?');">
                         <input type="hidden" name="actif" value="{{ 0 if affectation.actif else 1 }}">
                         <button type="submit" class="btn btn-sm {% if affectation.actif %}btn-outline-warning{% else %}btn-outline-success{% endif %}">{{ 'Désactiver' if affectation.actif else 'Réactiver' }}</button>
                     </form>
-                    {% if affectation.seances %}
-                    <button type="button" class="btn btn-sm btn-outline-danger" disabled title="Cette affectation est utilisée par {{ affectation.seances|length }} séance(s).">Supprimer</button>
-                    {% else %}
-                    <form method="POST" action="{{ url_for('main.supprimer_affectation', id_affectation=affectation.id_affectation) }}" class="d-inline" onsubmit="return confirm('Supprimer cette affectation ?');">
-                        <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+                    {% if administrateur_connecte %}
+                    <form method="POST" action="{{ url_for('main.supprimer_affectation', id_affectation=affectation.id_affectation) }}" class="d-grid" onsubmit="return confirm('Voulez-vous vraiment supprimer cette affectation ?');">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Supprimer</button>
                     </form>
                     {% endif %}
+                    </div>
                 </td>
             </tr>
         {% endfor %}
