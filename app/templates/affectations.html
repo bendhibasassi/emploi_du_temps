@@ -110,6 +110,13 @@
                         <input type="hidden" name="actif" value="{{ 0 if affectation.actif else 1 }}">
                         <button type="submit" class="btn btn-sm {% if affectation.actif %}btn-outline-warning{% else %}btn-outline-success{% endif %}">{{ 'Désactiver' if affectation.actif else 'Réactiver' }}</button>
                     </form>
+                    {% if affectation.seances %}
+                    <button type="button" class="btn btn-sm btn-outline-danger" disabled title="Cette affectation est utilisée par {{ affectation.seances|length }} séance(s).">Supprimer</button>
+                    {% else %}
+                    <form method="POST" action="{{ url_for('main.supprimer_affectation', id_affectation=affectation.id_affectation) }}" class="d-inline" onsubmit="return confirm('Supprimer cette affectation ?');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Supprimer</button>
+                    </form>
+                    {% endif %}
                 </td>
             </tr>
         {% endfor %}

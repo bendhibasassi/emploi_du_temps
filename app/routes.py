@@ -121,6 +121,14 @@ def filtrer_semaines_compatibles(query, semaine_type):
     ))
 
 
+def filtrer_chevauchements_creneau(query, creneau_demande):
+    """Conserve les créneaux qui chevauchent réellement celui demandé."""
+    return query.filter(
+        Creneau.heure_debut < creneau_demande.heure_fin,
+        Creneau.heure_fin > creneau_demande.heure_debut
+    )
+
+
 def verifier_capacite_salle(affectation, id_salle):
     """Retourne la salle et l'effectif requis lorsqu'elle est trop petite."""
     salle = Salle.query.get(id_salle)
@@ -207,12 +215,19 @@ JOURS = {
 
 def verifier_indisponibilite(session, id_annee, id_professeur, jour, id_creneau):
     """Vérifie si un professeur est indisponible à un créneau donné"""
-    indispo = session.query(Indisponibilite).filter(
-        Indisponibilite.id_annee == id_annee,
-        Indisponibilite.id_professeur == id_professeur,
-        Indisponibilite.jour == jour,
-        Indisponibilite.id_creneau == id_creneau,
-        Indisponibilite.actif == True
+    creneau_demande = session.query(Creneau).get(id_creneau)
+    if creneau_demande is None:
+        return True, None
+
+    indispo = filtrer_chevauchements_creneau(
+        session.query(Indisponibilite).join(
+            Creneau, Indisponibilite.id_creneau == Creneau.id_creneau
+        ).filter(
+            Indisponibilite.id_annee == id_annee,
+            Indisponibilite.id_professeur == id_professeur,
+            Indisponibilite.jour == jour,
+            Indisponibilite.actif == True
+        ), creneau_demande
     ).first()
 
     if indispo:
@@ -436,6 +451,13 @@ def lire_affectation_formulaire(affectation=None):
         return None, 'Le groupe sélectionné n’appartient pas à la section choisie.'
     if type_enseignement not in TYPES_ENSEIGNEMENT:
         return None, 'Le type d’enseignement doit être CM, TD ou TP.'
+    if type_enseignement == 'CM' and objets['groupe'] is not None:
+        return None, 'Une affectation CM concerne toute la section et ne peut pas avoir de groupe.'
+    if type_enseignement in {'TD', 'TP'} and objets['groupe'] is None:
+        return None, 'Une affectation TD ou TP doit obligatoirement cibler un groupe.'
+    if (objets['matiere'].id_niveau is not None and
+            objets['matiere'].id_niveau != objets['section'].id_niveau):
+        return None, 'La matière n’appartient pas au niveau de la section choisie.'
 
     paire_historique = bool(
         affectation and affectation.id_matiere == id_matiere and
@@ -576,6 +598,31 @@ def changer_statut_affectation(id_affectation):
     return redirect(url_for(
         'main.affectations', annee_id=affectation.id_annee,
         actif='1' if affectation.actif else '0'
+    ))
+
+
+@main.route('/affectation/<int:id_affectation>/supprimer', methods=['POST'])
+def supprimer_affectation(id_affectation):
+    """Supprimer uniquement une affectation qui n'est liée à aucune séance."""
+    affectation = Affectation.query.get_or_404(id_affectation)
+    nombre_seances = Seance.query.filter_by(
+        id_affectation=id_affectation
+    ).count()
+    if nombre_seances:
+        flash(
+            'Impossible de supprimer cette affectation : elle est utilisée '
+            f'par {nombre_seances} séance(s).',
+            'danger'
+        )
+    else:
+        id_annee = affectation.id_annee
+        db.session.delete(affectation)
+        db.session.commit()
+        flash('Affectation supprimée avec succès.', 'success')
+        return redirect(url_for('main.affectations', annee_id=id_annee))
+
+    return redirect(url_for(
+        'main.affectations', annee_id=affectation.id_annee
     ))
 
 
@@ -1091,7 +1138,8 @@ def ajouter_seance():
             flash('❌ Jour invalide !', 'danger')
             return redirect(url_for('main.ajouter_seance'))
 
-        if Creneau.query.get(id_creneau) is None:
+        creneau_demande = Creneau.query.get(id_creneau)
+        if creneau_demande is None:
             flash('❌ Créneau invalide ou inexistant !', 'danger')
             return redirect(url_for('main.ajouter_seance'))
 
@@ -1108,6 +1156,9 @@ def ajouter_seance():
         if affectation is None:
             flash('❌ Affectation invalide ou inexistante !', 'danger')
             return redirect(url_for('main.ajouter_seance'))
+        if not affectation.actif:
+            flash('❌ Cette affectation est inactive et ne peut pas être planifiée.', 'danger')
+            return redirect(url_for('main.ajouter_seance'))
 
         id_annee = affectation.id_annee
         id_professeur = affectation.id_professeur
@@ -1116,37 +1167,45 @@ def ajouter_seance():
         type_enseignement = affectation.type_enseignement
 
         # 1. Vérifier la salle
-        salle_occupee = filtrer_semaines_compatibles(Seance.query.filter_by(
-            id_annee=id_annee,
-            jour=jour,
-            id_creneau=id_creneau,
-            id_salle=id_salle
-        ), semaine_type).first()
+        salle_occupee = filtrer_semaines_compatibles(
+            filtrer_chevauchements_creneau(Seance.query.join(
+                Creneau, Seance.id_creneau == Creneau.id_creneau
+            ).filter(
+                Seance.id_annee == id_annee,
+                Seance.jour == jour,
+                Seance.id_salle == id_salle
+            ), creneau_demande), semaine_type
+        ).first()
         if salle_occupee:
             salle = Salle.query.get(id_salle)
             conflits.append(f"❌ La salle {salle.nom_salle} est déjà occupée à ce créneau !")
 
         # 2. Vérifier le professeur
-        prof_occupe = filtrer_semaines_compatibles(Seance.query.join(
-            Affectation, Seance.id_affectation == Affectation.id_affectation
-        ).filter(
-            Seance.id_annee == id_annee,
-            Seance.jour == jour,
-            Seance.id_creneau == id_creneau,
-            Affectation.id_professeur == id_professeur
-        ), semaine_type).first()
+        prof_occupe = filtrer_semaines_compatibles(
+            filtrer_chevauchements_creneau(Seance.query.join(
+                Affectation, Seance.id_affectation == Affectation.id_affectation
+            ).join(
+                Creneau, Seance.id_creneau == Creneau.id_creneau
+            ).filter(
+                Seance.id_annee == id_annee,
+                Seance.jour == jour,
+                Affectation.id_professeur == id_professeur
+            ), creneau_demande), semaine_type
+        ).first()
         if prof_occupe:
             prof = Professeur.query.get(id_professeur)
             conflits.append(f"❌ Le professeur {prof.prenom} {prof.nom} est déjà occupé !")
 
         # 3. Vérifier les étudiants (section en CM, groupe en TD/TP)
-        conflit_etudiants = verifier_conflit_etudiants(filtrer_semaines_compatibles(Seance.query.join(
-            Affectation, Seance.id_affectation == Affectation.id_affectation
-        ).filter(
-            Seance.id_annee == id_annee,
-            Seance.jour == jour,
-            Seance.id_creneau == id_creneau
-        ), semaine_type), affectation)
+        conflit_etudiants = verifier_conflit_etudiants(filtrer_semaines_compatibles(
+            filtrer_chevauchements_creneau(Seance.query.join(
+                Affectation, Seance.id_affectation == Affectation.id_affectation
+            ).join(
+                Creneau, Seance.id_creneau == Creneau.id_creneau
+            ).filter(
+                Seance.id_annee == id_annee,
+                Seance.jour == jour
+            ), creneau_demande), semaine_type), affectation)
         if conflit_etudiants:
             public = (f"La section {affectation.section.libelle}"
                       if type_enseignement == 'CM'
@@ -1205,7 +1264,7 @@ def ajouter_seance():
         return redirect(url_for('main.ajouter_seance'))
 
     # === GET : Afficher le formulaire ===
-    affectations = Affectation.query.order_by(
+    affectations = Affectation.query.filter_by(actif=True).order_by(
         Affectation.id_annee,
         Affectation.id_section,
         Affectation.type_enseignement,
@@ -1237,17 +1296,15 @@ def verifier_conflits_seance(seance, jour, id_creneau, id_salle,
     salle_occupee = None
     if creneau_demande:
         salle_occupee = filtrer_semaines_compatibles(
-            Seance.query.join(
+            filtrer_chevauchements_creneau(Seance.query.join(
                 Creneau, Seance.id_creneau == Creneau.id_creneau
             ).filter(
                 Seance.id_seance != seance.id_seance,
                 Seance.id_annee == seance.id_annee,
                 Seance.jour == jour,
                 Seance.id_salle == id_salle,
-                Seance.statut != 'ANNULEE',
-                Creneau.heure_debut < creneau_demande.heure_fin,
-                Creneau.heure_fin > creneau_demande.heure_debut
-            ), semaine_type
+                Seance.statut != 'ANNULEE'
+            ), creneau_demande), semaine_type
         ).options(
             joinedload(Seance.salle),
             joinedload(Seance.creneau),
@@ -1273,25 +1330,29 @@ def verifier_conflits_seance(seance, jour, id_creneau, id_salle,
 
     affectation = Affectation.query.get(seance.id_affectation)
     if affectation:
-        professeur_occupe = filtrer_semaines_compatibles(Seance.query.join(Affectation).filter(
-            Seance.id_seance != seance.id_seance,
-            Seance.id_annee == seance.id_annee,
-            Seance.jour == jour,
-            Seance.id_creneau == id_creneau,
-            Affectation.id_professeur == affectation.id_professeur,
-            Seance.statut != 'ANNULEE'
-        ), semaine_type).first()
+        professeur_occupe = filtrer_semaines_compatibles(
+            filtrer_chevauchements_creneau(Seance.query.join(Affectation).join(
+                Creneau, Seance.id_creneau == Creneau.id_creneau
+            ).filter(
+                Seance.id_seance != seance.id_seance,
+                Seance.id_annee == seance.id_annee,
+                Seance.jour == jour,
+                Affectation.id_professeur == affectation.id_professeur,
+                Seance.statut != 'ANNULEE'
+            ), creneau_demande), semaine_type
+        ).first()
         if professeur_occupe:
             conflits.append('Le professeur est déjà occupé à ce créneau.')
 
         conflit_etudiants = verifier_conflit_etudiants(filtrer_semaines_compatibles(
-            Seance.query.join(Affectation).filter(
-            Seance.id_seance != seance.id_seance,
-            Seance.id_annee == seance.id_annee,
-            Seance.jour == jour,
-            Seance.id_creneau == id_creneau,
-            Seance.statut != 'ANNULEE'
-        ), semaine_type), affectation)
+            filtrer_chevauchements_creneau(Seance.query.join(Affectation).join(
+                Creneau, Seance.id_creneau == Creneau.id_creneau
+            ).filter(
+                Seance.id_seance != seance.id_seance,
+                Seance.id_annee == seance.id_annee,
+                Seance.jour == jour,
+                Seance.statut != 'ANNULEE'
+            ), creneau_demande), semaine_type), affectation)
         if conflit_etudiants:
             public = 'La section' if affectation.type_enseignement == 'CM' else 'Le groupe'
             conflits.append(f'{public} est déjà occupé à ce créneau.')
@@ -1302,6 +1363,13 @@ def verifier_conflits_seance(seance, jour, id_creneau, id_salle,
             conflits.append(
                 f'Cette salle est trop petite (capacité : {salle.capacite}, effectif : {effectif}).'
             )
+
+        ok, message = verifier_indisponibilite(
+            db.session, seance.id_annee, affectation.id_professeur,
+            jour, id_creneau
+        )
+        if not ok:
+            conflits.append(f'Indisponibilité : {message}')
 
     return conflits
 
