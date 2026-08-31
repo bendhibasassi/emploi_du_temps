@@ -294,6 +294,20 @@ def verifier_conflits_attribution_professeur(session, affectation, professeur):
     return conflits
 
 
+def trouver_affectation_equivalente(session, affectation, id_professeur):
+    """Cherche une autre affectation ayant la même identité métier."""
+    return session.query(Affectation).filter(
+        Affectation.id_affectation != affectation.id_affectation,
+        Affectation.id_annee == affectation.id_annee,
+        Affectation.id_professeur == id_professeur,
+        Affectation.id_matiere == affectation.id_matiere,
+        Affectation.id_section == affectation.id_section,
+        Affectation.id_groupe == affectation.id_groupe,
+        Affectation.type_enseignement == affectation.type_enseignement,
+        Affectation.semestre == affectation.semestre,
+    ).first()
+
+
 def remplacer_professeur_affectation(session, affectation, professeur):
     """Prépare un transfert placeholder vers professeur réel, sans commit."""
     if not affectation.professeur.est_placeholder:
@@ -305,6 +319,13 @@ def remplacer_professeur_affectation(session, affectation, professeur):
             professeur.statut != 'Vacataire'):
         raise ValueError(
             'Le nouveau professeur doit être un vacataire réel et actif.'
+        )
+
+    if trouver_affectation_equivalente(
+            session, affectation, professeur.id_professeur):
+        raise ValueError(
+            'Attribution refusée : ce vacataire possède déjà une affectation '
+            'métier équivalente.'
         )
 
     conflits = verifier_conflits_attribution_professeur(
