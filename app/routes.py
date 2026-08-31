@@ -18,10 +18,10 @@ from app.models import (
     Professeur, Matiere, Niveau, Section, Groupe, Salle, Creneau,
     Affectation, Seance, AnneeUniversitaire, Indisponibilite, Historique
 )
+from app.referentiels import SALLES_OFFICIELLES, TYPES_SALLE
 from datetime import datetime
 
 
-TYPES_SALLE = ('AMPHI', 'GRANDE_SALLE', 'PETITE_SALLE')
 main = Blueprint('main', __name__)
 
 
@@ -1787,7 +1787,7 @@ def supprimer_professeur(id_professeur):
 @main.route('/salles')
 def salles():
     """Liste des salles"""
-    salles_list = Salle.query.order_by(Salle.code_salle).all()
+    salles_list = sorted(Salle.query.all(), key=cle_tri_naturel_salle)
     return render_template('salles.html', salles=salles_list)
 
 
@@ -1796,13 +1796,15 @@ def ajouter_salle():
     """Ajouter une salle"""
     if request.method == 'POST':
         code_salle = request.form.get('code_salle', '').strip()
-        nom_salle = request.form.get('nom_salle', '').strip()
-        type_salle = request.form.get('type_salle', '').strip()
         batiment = request.form.get('batiment', '').strip()
+        definition = SALLES_OFFICIELLES.get(code_salle)
 
-        if not code_salle or not nom_salle or type_salle not in TYPES_SALLE:
-            flash('❌ Code, nom et type de salle valides sont obligatoires !', 'danger')
+        if definition is None:
+            flash('❌ Le code doit appartenir au référentiel officiel des salles.', 'danger')
             return redirect(url_for('main.ajouter_salle'))
+
+        nom_salle = definition['nom']
+        type_salle = definition['type']
 
         try:
             capacite = convertir_capacite_salle(request.form.get('capacite'))
@@ -1841,7 +1843,14 @@ def ajouter_salle():
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
-    return render_template('ajouter_salle.html', types_salle=TYPES_SALLE)
+    codes_existants = {
+        code for code, in db.session.query(Salle.code_salle).all()
+    }
+    return render_template(
+        'ajouter_salle.html',
+        salles_officielles=SALLES_OFFICIELLES,
+        codes_existants=codes_existants,
+    )
 
 
 @main.route('/salle/<int:id_salle>/modifier', methods=['GET', 'POST'])
@@ -1855,9 +1864,17 @@ def modifier_salle(id_salle):
         code_salle = request.form.get('code_salle', '').strip()
         nom_salle = request.form.get('nom_salle', '').strip()
         type_salle = request.form.get('type_salle', '').strip()
+        definition = SALLES_OFFICIELLES.get(code_salle)
+        salle_initialement_officielle = salle.code_salle in SALLES_OFFICIELLES
 
-        if (not code_salle or not nom_salle or
-                (type_salle not in TYPES_SALLE and type_salle != salle.type_salle)):
+        if salle_initialement_officielle and definition is None:
+            flash('Une salle officielle doit conserver un code du référentiel.', 'danger')
+            return redirect(url_for('main.modifier_salle', id_salle=id_salle))
+        if definition:
+            nom_salle = definition['nom']
+            type_salle = definition['type']
+        elif (not code_salle or not nom_salle or
+              (type_salle not in TYPES_SALLE and type_salle != salle.type_salle)):
             flash('❌ Code, nom et type de salle valides sont obligatoires !', 'danger')
             return redirect(url_for('main.modifier_salle', id_salle=id_salle))
 
@@ -1904,7 +1921,15 @@ def modifier_salle(id_salle):
     if salle.type_salle not in types_salle:
         types_salle.append(salle.type_salle)
     return render_template(
-        'modifier_salle.html', salle=salle, types_salle=types_salle
+        'modifier_salle.html',
+        salle=salle,
+        types_salle=types_salle,
+        salles_officielles=SALLES_OFFICIELLES,
+        codes_existants={
+            code for code, in db.session.query(Salle.code_salle).filter(
+                Salle.id_salle != salle.id_salle
+            ).all()
+        },
     )
 
 

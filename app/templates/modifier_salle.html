@@ -12,21 +12,30 @@
                 <form method="POST">
                     <div class="mb-3">
                         <label for="code_salle" class="form-label">Code <span class="text-danger">*</span></label>
+                        {% if salle.code_salle in salles_officielles %}
+                        <select name="code_salle" id="code_salle" class="form-select" required>
+                            {% for code, definition in salles_officielles.items() %}
+                            <option value="{{ code }}" {% if code == salle.code_salle %}selected{% elif code in codes_existants %}disabled{% endif %}>{{ code }} — {{ definition.nom }} — {{ definition.type }}{% if code in codes_existants %} — déjà présente{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        {% else %}
                         <input type="text" name="code_salle" id="code_salle" class="form-control"
                                value="{{ salle.code_salle }}" maxlength="30" required>
+                        {% endif %}
                     </div>
 
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="nom_salle" class="form-label">Nom <span class="text-danger">*</span></label>
                             <input type="text" name="nom_salle" id="nom_salle" class="form-control"
-                                   value="{{ salle.nom_salle }}" maxlength="150" required>
+                                   value="{{ salle.nom_salle }}" maxlength="150" required {% if salle.code_salle in salles_officielles %}readonly{% endif %}>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="type_salle" class="form-label">Type <span class="text-danger">*</span></label>
-                            <select name="type_salle" id="type_salle" class="form-select" required>
+                            <select name="type_salle" id="type_salle" class="form-select" required {% if salle.code_salle in salles_officielles %}disabled{% endif %}>
                                 {% for type in types_salle %}<option value="{{ type }}" {% if salle.type_salle == type %}selected{% endif %}>{{ type }}</option>{% endfor %}
                             </select>
+                            {% if salle.code_salle in salles_officielles %}<input type="hidden" name="type_salle" value="{{ salle.type_salle }}">{% endif %}
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="capacite" class="form-label">Capacité</label>
