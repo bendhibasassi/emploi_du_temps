@@ -721,15 +721,7 @@ def attribuer_professeur_affectation(id_affectation):
                 remplacer_professeur_affectation(
                     db.session, affectation, professeur
                 )
-                db.session.commit()
-            except ValueError as exc:
-                db.session.rollback()
-                flash(str(exc), 'danger')
-            except SQLAlchemyError:
-                db.session.rollback()
-                flash('Le remplacement n’a pas pu être enregistré.', 'danger')
-            else:
-                ajouter_historique(
+                db.session.add(Historique(
                     utilisateur='Administrateur',
                     action='MODIFICATION',
                     type_objet='AFFECTATION',
@@ -744,8 +736,17 @@ def attribuer_professeur_affectation(id_affectation):
                         f'{professeur.id_professeur} — '
                         f'{professeur.prenom or ""} {professeur.nom}'
                     ),
-                    ip=request.remote_addr,
-                )
+                    date_heure=datetime.utcnow(),
+                    ip_adresse=request.remote_addr,
+                ))
+                db.session.commit()
+            except ValueError as exc:
+                db.session.rollback()
+                flash(str(exc), 'danger')
+            except SQLAlchemyError:
+                db.session.rollback()
+                flash('Le remplacement n’a pas pu être enregistré.', 'danger')
+            else:
                 flash('Affectation attribuée au professeur avec succès.', 'success')
                 return redirect(url_for(
                     'main.modifier_affectation', id_affectation=id_affectation
