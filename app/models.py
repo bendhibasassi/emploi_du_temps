@@ -160,6 +160,44 @@ class Affectation(db.Model):
     section = db.relationship('Section', backref='affectations', lazy=True)
     annee = db.relationship('AnneeUniversitaire', backref='affectations', lazy=True)
 
+    def calculer_planification(self):
+        """Calcule la charge hebdomadaire couverte par les séances réelles."""
+        try:
+            attendu = float(self.nb_seances_semaine)
+        except (TypeError, ValueError):
+            attendu = 1.0
+        if attendu <= 0:
+            attendu = 1.0
+
+        poids_semaine = {
+            'TOUTES': 1.0,
+            'PAIRE': 0.5,
+            'IMPAIRE': 0.5,
+        }
+        planifie = sum(
+            poids_semaine.get(seance.semaine_type, 0.0)
+            for seance in self.seances
+            if seance.statut != 'ANNULEE'
+        )
+
+        if planifie == 0:
+            statut = 'SANS_SEANCE'
+        elif planifie < attendu:
+            statut = 'PARTIEL'
+        else:
+            statut = 'COMPLET'
+
+        return {
+            'planifie': planifie,
+            'attendu': attendu,
+            'statut': statut,
+        }
+
+    @property
+    def planification(self):
+        """Expose le statut de planification aux vues et autres usages métier."""
+        return self.calculer_planification()
+
 class Seance(db.Model):
     __tablename__ = "tbl_seances"
     

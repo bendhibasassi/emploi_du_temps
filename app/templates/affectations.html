@@ -82,6 +82,7 @@
         <thead><tr><th>Année</th><th>Professeur</th><th>Matière</th><th>Niveau</th><th>Public</th><th>Type</th><th>Semestre</th><th>Charge</th><th>Statut</th><th>Actions</th></tr></thead>
         <tbody>
         {% for affectation in affectations %}
+            {% set planification = affectation.planification %}
             <tr>
                 <td>{{ affectation.annee.libelle }}</td>
                 <td>
@@ -102,7 +103,8 @@
                 </td>
                 <td>
                     <span class="badge {% if affectation.actif %}bg-success{% else %}bg-secondary{% endif %}">{{ 'Active' if affectation.actif else 'Inactive' }}</span>
-                    {% if not affectation.seances %}<br><span class="badge bg-warning text-dark mt-1">Sans séance</span>{% endif %}
+                    <br><span class="badge mt-1 {% if planification.statut == 'COMPLET' %}bg-success{% elif planification.statut == 'PARTIEL' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{% if planification.statut == 'COMPLET' %}Complet{% elif planification.statut == 'PARTIEL' %}Partiel{% else %}Sans séance{% endif %}</span>
+                    <br><small class="text-muted">{{ planification.planifie|int if planification.planifie == planification.planifie|int else (planification.planifie|string)|replace('.', ',') }} / {{ planification.attendu|int if planification.attendu == planification.attendu|int else (planification.attendu|string)|replace('.', ',') }}</small>
                 </td>
                 <td>
                     <div class="d-grid gap-1">
