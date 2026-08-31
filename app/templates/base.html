@@ -34,6 +34,9 @@
             <span class="nav-section">Administration</span>
             <a class="sidebar-link {% if request.endpoint == 'main.annees_universitaires' %}active{% endif %}" href="{{ url_for('main.annees_universitaires') }}"><i class="fas fa-calendar"></i><span>Années universitaires</span></a>
             <a class="sidebar-link {% if request.endpoint == 'main.historique' %}active{% endif %}" href="{{ url_for('main.historique') }}"><i class="fas fa-clock-rotate-left"></i><span>Historique</span></a>
+            {% if administrateur_connecte %}
+            <a class="sidebar-link {% if request.endpoint in ('main.admin_bdd', 'main.admin_bdd_table') %}active{% endif %}" href="{{ url_for('main.admin_bdd') }}"><i class="fas fa-database"></i><span>Base de données</span></a>
+            {% endif %}
         </nav>
     </aside>
     <button class="sidebar-backdrop" id="sidebarBackdrop" type="button" aria-label="Fermer le menu"></button>

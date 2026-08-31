@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 import pandas as pd
 from flask import (
-    Blueprint, current_app, render_template, request, redirect, session,
+    Blueprint, abort, current_app, render_template, request, redirect, session,
     url_for, flash, send_file,
 )
 from werkzeug.security import check_password_hash
@@ -19,6 +19,12 @@ from app.models import (
     Affectation, Seance, AnneeUniversitaire, Indisponibilite, Historique
 )
 from app.referentiels import SALLES_OFFICIELLES, TYPES_SALLE
+from app.services.database_viewer import (
+    lister_tables_autorisees,
+    obtenir_donnees_paginees,
+    obtenir_metadonnees,
+    obtenir_table_autorisee,
+)
 from datetime import datetime
 
 
@@ -33,6 +39,14 @@ def destination_sure(destination):
     if cible.scheme or cible.netloc or not cible.path.startswith('/'):
         return None
     return destination
+
+
+def administrateur_requis():
+    """Redirige les consultations d'administration non authentifiées."""
+    if not session.get('admin_connecte'):
+        flash('Connectez-vous pour accéder à cette page.', 'warning')
+        return redirect(url_for('main.connexion', next=request.full_path))
+    return None
 
 
 @main.route('/connexion', methods=['GET', 'POST'])
@@ -64,6 +78,48 @@ def deconnexion():
     session.clear()
     flash('Vous êtes déconnecté.', 'info')
     return redirect(url_for('main.index'))
+
+
+@main.route('/admin/bdd', methods=['GET'])
+def admin_bdd():
+    """Présente les seules tables métier autorisées à la consultation."""
+    refus = administrateur_requis()
+    if refus:
+        return refus
+    return render_template(
+        'admin_bdd.html', tables=lister_tables_autorisees()
+    )
+
+
+@main.route('/admin/bdd/<table>', methods=['GET'])
+def admin_bdd_table(table):
+    """Affiche les métadonnées et une page d'une table autorisée."""
+    refus = administrateur_requis()
+    if refus:
+        return refus
+    configuration = obtenir_table_autorisee(table)
+    if configuration is None:
+        abort(404)
+
+    valeur_page = request.args.get('page', '1')
+    try:
+        page = int(valeur_page)
+    except (TypeError, ValueError):
+        abort(400, description='Le numéro de page doit être un entier positif.')
+    if page < 1:
+        abort(400, description='Le numéro de page doit être un entier positif.')
+
+    metadonnees = obtenir_metadonnees(table)
+    colonnes, lignes, pagination = obtenir_donnees_paginees(table, page)
+    return render_template(
+        'admin_bdd_table.html',
+        nom_table=table,
+        libelle_table=configuration['libelle'],
+        metadonnees=metadonnees,
+        colonnes=colonnes,
+        lignes=lignes,
+        pagination=pagination,
+    )
 
 
 def ajouter_historique(utilisateur, action, type_objet, id_objet,

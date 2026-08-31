@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}{{ libelle_table }} — Base de données{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="h3 mb-1">{{ libelle_table }}</h1>
+        <p class="text-muted mb-0"><code>{{ nom_table }}</code></p>
+    </div>
+    <span class="badge text-bg-secondary">Lecture seule</span>
+</div>
+
+<section class="card mb-4">
+    <div class="card-header"><strong>Métadonnées</strong></div>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover mb-0">
+            <thead>
+                <tr><th>Colonne</th><th>Type SQL</th><th>Clé primaire</th><th>Clé étrangère</th><th>Cible</th></tr>
+            </thead>
+            <tbody>
+                {% for colonne in metadonnees %}
+                <tr>
+                    <td><code>{{ colonne.nom }}</code></td>
+                    <td>{{ colonne.type }}</td>
+                    <td>{{ 'Oui' if colonne.cle_primaire else 'Non' }}</td>
+                    <td>{{ 'Oui' if colonne.cle_etrangere else 'Non' }}</td>
+                    <td>{{ colonne.cible or '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="card mb-4">
+    <div class="card-header"><strong>Données</strong></div>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover table-sm mb-0">
+            <thead><tr>{% for colonne in colonnes %}<th>{{ colonne }}</th>{% endfor %}</tr></thead>
+            <tbody>
+                {% for ligne in lignes %}
+                <tr>{% for valeur in ligne %}<td>{{ valeur if valeur is not none else 'NULL' }}</td>{% endfor %}</tr>
+                {% else %}
+                <tr><td colspan="{{ colonnes|length }}" class="text-center text-muted py-4">Aucune ligne sur cette page.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% if pagination.pages > 1 %}
+<nav aria-label="Pagination des données">
+    <ul class="pagination">
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('main.admin_bdd_table', table=nom_table, page=pagination.prev_num) if pagination.has_prev else '#' }}">Précédente</a>
+        </li>
+        <li class="page-item disabled"><span class="page-link">Page {{ pagination.page }} sur {{ pagination.pages }}</span></li>
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('main.admin_bdd_table', table=nom_table, page=pagination.next_num) if pagination.has_next else '#' }}">Suivante</a>
+        </li>
+    </ul>
+</nav>
+{% endif %}
+
+<a class="btn btn-outline-secondary" href="{{ url_for('main.admin_bdd') }}">Retour aux tables</a>
+{% endblock %}

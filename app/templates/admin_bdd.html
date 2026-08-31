@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Base de données{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="h3 mb-1">Base de données</h1>
+        <p class="text-muted mb-0">Consultation en lecture seule des tables métier autorisées.</p>
+    </div>
+    <span class="badge text-bg-secondary">Lecture seule</span>
+</div>
+
+<div class="row g-3">
+    {% for table in tables %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="h5">{{ table.libelle }}</h2>
+                <p class="text-muted"><code>{{ table.nom }}</code></p>
+                <a class="btn btn-outline-primary" href="{{ url_for('main.admin_bdd_table', table=table.nom) }}">
+                    Consulter
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
