@@ -21,7 +21,7 @@ ROUTES_ECRITURE = {
     'main.activer_annee_universitaire',
     'main.preparer_annee_universitaire',
     'main.ajouter_affectation', 'main.modifier_affectation',
-    'main.changer_statut_affectation',
+    'main.changer_statut_affectation', 'main.attribuer_professeur_affectation',
     'main.ajouter_niveau', 'main.modifier_niveau',
     'main.ajouter_section', 'main.modifier_section',
     'main.ajouter_creneau', 'main.modifier_creneau',

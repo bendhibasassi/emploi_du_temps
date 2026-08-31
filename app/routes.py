@@ -240,6 +240,82 @@ def verifier_indisponibilite(session, id_annee, id_professeur, jour, id_creneau)
 
     return True, None
 
+
+def verifier_conflits_attribution_professeur(session, affectation, professeur):
+    """Vérifie les contraintes du professeur pour les séances transférées."""
+    conflits = []
+    for seance in affectation.seances:
+        if seance.statut == 'ANNULEE':
+            continue
+
+        creneau = session.query(Creneau).get(seance.id_creneau)
+        if creneau is None:
+            conflits.append(
+                f'Séance {seance.id_seance} : créneau introuvable.'
+            )
+            continue
+
+        professeur_occupe = filtrer_semaines_compatibles(
+            filtrer_chevauchements_creneau(
+                session.query(Seance).join(Affectation).join(
+                    Creneau, Seance.id_creneau == Creneau.id_creneau
+                ).filter(
+                    Seance.id_seance != seance.id_seance,
+                    Seance.id_annee == seance.id_annee,
+                    Seance.jour == seance.jour,
+                    Affectation.id_professeur == professeur.id_professeur,
+                    Seance.statut != 'ANNULEE',
+                ),
+                creneau,
+            ),
+            seance.semaine_type,
+        ).first()
+        if professeur_occupe:
+            conflits.append(
+                f'Séance {seance.id_seance}, {JOURS[seance.jour]} '
+                f'{creneau.heure_debut.strftime("%H:%M")}-'
+                f'{creneau.heure_fin.strftime("%H:%M")} : le professeur est '
+                'déjà occupé.'
+            )
+
+        disponible, message = verifier_indisponibilite(
+            session,
+            seance.id_annee,
+            professeur.id_professeur,
+            seance.jour,
+            seance.id_creneau,
+        )
+        if not disponible:
+            conflits.append(
+                f'Séance {seance.id_seance}, {JOURS[seance.jour]} '
+                f'{creneau.heure_debut.strftime("%H:%M")}-'
+                f'{creneau.heure_fin.strftime("%H:%M")} : {message}'
+            )
+    return conflits
+
+
+def remplacer_professeur_affectation(session, affectation, professeur):
+    """Prépare un transfert placeholder vers professeur réel, sans commit."""
+    if not affectation.professeur.est_placeholder:
+        raise ValueError(
+            'Seule une affectation actuellement liée à un profil « À affecter » '
+            'peut utiliser ce workflow.'
+        )
+    if professeur.est_placeholder or not professeur.actif:
+        raise ValueError(
+            'Le nouveau professeur doit être un enseignant réel et actif.'
+        )
+
+    conflits = verifier_conflits_attribution_professeur(
+        session, affectation, professeur
+    )
+    if conflits:
+        raise ValueError('Remplacement refusé : ' + ' '.join(conflits))
+
+    ancien_professeur = affectation.professeur
+    affectation.id_professeur = professeur.id_professeur
+    return ancien_professeur
+
 @main.route('/')
 def index():
     """Tableau de bord"""
@@ -580,6 +656,82 @@ def modifier_affectation(id_affectation):
     return render_template(
         'formulaire_affectation.html',
         **contexte_formulaire_affectation(affectation)
+    )
+
+
+@main.route(
+    '/affectation/<int:id_affectation>/attribuer-professeur',
+    methods=['GET', 'POST'],
+)
+def attribuer_professeur_affectation(id_affectation):
+    """Remplacer un placeholder par un professeur réel existant."""
+    affectation = Affectation.query.options(
+        joinedload(Affectation.professeur),
+        joinedload(Affectation.matiere),
+        joinedload(Affectation.section),
+        joinedload(Affectation.groupe),
+        selectinload(Affectation.seances),
+    ).get_or_404(id_affectation)
+
+    if not affectation.professeur.est_placeholder:
+        flash(
+            'Cette action est réservée aux affectations encore à attribuer.',
+            'danger',
+        )
+        return redirect(url_for(
+            'main.modifier_affectation', id_affectation=id_affectation
+        ))
+
+    professeurs = Professeur.query.filter(
+        ~Professeur.est_placeholder,
+        Professeur.actif.is_(True),
+    ).order_by(Professeur.nom, Professeur.prenom).all()
+
+    if request.method == 'POST':
+        id_professeur = request.form.get('id_professeur', type=int)
+        professeur = Professeur.query.get(id_professeur) if id_professeur else None
+        if professeur is None:
+            flash('Sélectionnez un professeur valide.', 'danger')
+        else:
+            ancien_professeur = affectation.professeur
+            try:
+                remplacer_professeur_affectation(
+                    db.session, affectation, professeur
+                )
+                db.session.commit()
+            except ValueError as exc:
+                db.session.rollback()
+                flash(str(exc), 'danger')
+            except SQLAlchemyError:
+                db.session.rollback()
+                flash('Le remplacement n’a pas pu être enregistré.', 'danger')
+            else:
+                ajouter_historique(
+                    utilisateur='Administrateur',
+                    action='MODIFICATION',
+                    type_objet='AFFECTATION',
+                    id_objet=affectation.id_affectation,
+                    ancienne_valeur=(
+                        f'Professeur: {ancien_professeur.id_professeur} — '
+                        f'{ancien_professeur.prenom or ""} '
+                        f'{ancien_professeur.nom}'
+                    ),
+                    nouvelle_valeur=(
+                        f'Remplacement professeur affectation — Professeur: '
+                        f'{professeur.id_professeur} — '
+                        f'{professeur.prenom or ""} {professeur.nom}'
+                    ),
+                    ip=request.remote_addr,
+                )
+                flash('Affectation attribuée au professeur avec succès.', 'success')
+                return redirect(url_for(
+                    'main.modifier_affectation', id_affectation=id_affectation
+                ))
+
+    return render_template(
+        'attribuer_professeur_affectation.html',
+        affectation=affectation,
+        professeurs=professeurs,
     )
 
 

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Attribuer l’affectation{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div><h1>Attribuer à un professeur</h1><p>Remplacez le profil provisoire sans recréer l’affectation ni ses séances.</p></div>
+    <a href="{{ url_for('main.modifier_affectation', id_affectation=affectation.id_affectation) }}" class="btn btn-outline-secondary">Annuler</a>
+</div>
+
+<div class="card mb-4"><div class="card-body"><dl class="row mb-0">
+    <dt class="col-sm-3">Affectation</dt><dd class="col-sm-9">#{{ affectation.id_affectation }}</dd>
+    <dt class="col-sm-3">Matière</dt><dd class="col-sm-9">{{ affectation.matiere.code_matiere }} — {{ affectation.matiere.nom_matiere }}</dd>
+    <dt class="col-sm-3">Public</dt><dd class="col-sm-9">{{ affectation.section.libelle }}{% if affectation.groupe %} — {{ affectation.groupe.code_groupe }} — {{ affectation.groupe.nom_groupe }}{% endif %}</dd>
+    <dt class="col-sm-3">Enseignement</dt><dd class="col-sm-9">{{ affectation.type_enseignement }} — semestre {{ affectation.semestre }}</dd>
+    <dt class="col-sm-3">Professeur actuel</dt><dd class="col-sm-9"><span class="badge bg-info text-dark">À affecter</span> {{ affectation.professeur.prenom or '' }} {{ affectation.professeur.nom }}</dd>
+    <dt class="col-sm-3">Séances conservées</dt><dd class="col-sm-9">{{ affectation.seances|length }}</dd>
+</dl></div></div>
+
+<div class="card"><div class="card-body">
+    <form method="POST" onsubmit="const choix = this.id_professeur.selectedOptions[0]; return choix && confirm('Attribuer définitivement cette affectation à ' + choix.text + ' ?');">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3"><label for="id_professeur" class="form-label">Nouveau professeur</label><select name="id_professeur" id="id_professeur" class="form-select" required><option value="">Sélectionner...</option>{% for professeur in professeurs %}<option value="{{ professeur.id_professeur }}">{{ professeur.prenom or '' }} {{ professeur.nom }}</option>{% endfor %}</select></div>
+        <button type="submit" class="btn btn-primary">Attribuer définitivement</button>
+    </form>
+</div></div>
+{% endblock %}
