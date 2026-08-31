@@ -246,7 +246,9 @@ def index():
     annees = AnneeUniversitaire.query.all()
     annee_active = AnneeUniversitaire.query.filter_by(active=True).first()
     annee_id = annee_active.id_annee if annee_active else None
-    professeurs = Professeur.query.all()
+    professeurs = Professeur.query.filter(
+        ~Professeur.est_placeholder
+    ).all()
     matieres = Matiere.query.all()
     sections = Section.query.all()
     groupes = Groupe.query.all()
@@ -270,6 +272,7 @@ def index():
             ~Matiere.affectations.any(Affectation.id_annee == annee_id)
         ).count()
         professeurs_sans_affectation = Professeur.query.filter(
+            ~Professeur.est_placeholder,
             ~Professeur.affectations.any(Affectation.id_annee == annee_id)
         ).count()
         indisponibilites = Indisponibilite.query.filter_by(

@@ -37,6 +37,9 @@
                         {% if not professeur.actif %}
                             <span class="badge bg-danger">Inactif</span>
                         {% endif %}
+                        {% if professeur.est_placeholder %}
+                            <span class="badge bg-info text-dark">À affecter</span>
+                        {% endif %}
                     </h5>
                     <p class="card-text">
                         <strong>Grade :</strong> {{ professeur.grade or 'Non renseigné' }}<br>

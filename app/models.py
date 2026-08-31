@@ -1,6 +1,13 @@
 # app/models.py
 from app import db
 from datetime import date, time, datetime
+from sqlalchemy.ext.hybrid import hybrid_property
+
+
+NOMS_PLACEHOLDERS_PROFESSEUR = frozenset({
+    'Vacataire à affecter 1',
+    'Vacataire à affecter 2',
+})
 
 class AnneeUniversitaire(db.Model):
     __tablename__ = "tbl_annees_univ"
@@ -86,6 +93,18 @@ class Professeur(db.Model):
 
     # Relation
     affectations = db.relationship('Affectation', back_populates='professeur', lazy=True)
+
+    @hybrid_property
+    def est_placeholder(self):
+        """Identifie provisoirement les profils d'enseignements à attribuer."""
+        return (self.nom or '').strip().casefold() in {
+            nom.casefold() for nom in NOMS_PLACEHOLDERS_PROFESSEUR
+        }
+
+    @est_placeholder.expression
+    def est_placeholder(cls):
+        """Permet d'exclure les placeholders dans les requêtes statistiques."""
+        return cls.nom.in_(NOMS_PLACEHOLDERS_PROFESSEUR)
 
     def calculer_charge(self, annee_id, affectations=None):
         """Agrège la planification des affectations actives d'une année."""
