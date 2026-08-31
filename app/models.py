@@ -87,6 +87,48 @@ class Professeur(db.Model):
     # Relation
     affectations = db.relationship('Affectation', back_populates='professeur', lazy=True)
 
+    def calculer_charge(self, annee_id, affectations=None):
+        """Agrège la planification des affectations actives d'une année."""
+        affectations_source = self.affectations if affectations is None else affectations
+        affectations_pertinentes = [
+            affectation for affectation in affectations_source
+            if affectation.actif and affectation.id_annee == annee_id
+        ]
+
+        if not affectations_pertinentes:
+            return {
+                'attendu': 0.0,
+                'planifie': 0.0,
+                'restant': 0.0,
+                'statut': 'SANS_AFFECTATION',
+                'nb_affectations': 0,
+            }
+
+        planifications = [
+            affectation.calculer_planification()
+            for affectation in affectations_pertinentes
+        ]
+        attendu = sum(item['attendu'] for item in planifications)
+        planifie = sum(item['planifie'] for item in planifications)
+        restant = attendu - planifie
+
+        if planifie == 0:
+            statut = 'SANS_PLANIFICATION'
+        elif planifie < attendu:
+            statut = 'PARTIEL'
+        elif planifie == attendu:
+            statut = 'COMPLET'
+        else:
+            statut = 'SURCHARGE'
+
+        return {
+            'attendu': attendu,
+            'planifie': planifie,
+            'restant': restant,
+            'statut': statut,
+            'nb_affectations': len(affectations_pertinentes),
+        }
+
     def __repr__(self):
         return f"<Professeur {self.nom} ({self.statut})>"
 

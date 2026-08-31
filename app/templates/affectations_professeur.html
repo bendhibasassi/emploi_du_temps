@@ -4,16 +4,30 @@
 <div class="page-heading">
     <div>
         <h1>Affectations de {{ professeur.prenom or '' }} {{ professeur.nom }}</h1>
-        <p>{{ affectations|length }} affectation(s)</p>
+        <p>Charge hebdomadaire en équivalent séances.</p>
     </div>
     <div class="page-actions">
         <a href="{{ url_for('main.affectations') }}" class="btn btn-outline-primary">
             <i class="fas fa-list"></i> Retour à toutes les affectations
         </a>
-        <a href="{{ url_for('main.professeurs') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('main.professeurs', annee_id=annee_id) }}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left"></i> Retour aux professeurs
         </a>
     </div>
+</div>
+
+<form method="GET" class="row g-2 align-items-end mb-3">
+    <div class="col-md-4"><label for="annee_id" class="form-label">Année universitaire</label><select name="annee_id" id="annee_id" class="form-select"><option value="">Année de travail (par défaut)</option>{% for annee in annees %}<option value="{{ annee.id_annee }}" {% if annee_id == annee.id_annee %}selected{% endif %}>{{ annee.libelle }}</option>{% endfor %}</select></div>
+    <div class="col-auto"><button type="submit" class="btn btn-primary">Afficher</button></div>
+</form>
+{% if aucune_annee_active %}<div class="alert alert-warning">Aucune année de travail active. Sélectionnez une année pour calculer les charges.</div>{% endif %}
+
+<div class="row g-2 mb-4">
+    <div class="col"><div class="card card-body text-center"><small class="text-muted">Affectations actives</small><strong>{{ charge.nb_affectations }}</strong></div></div>
+    <div class="col"><div class="card card-body text-center"><small class="text-muted">Charge attendue</small><strong>{{ charge.attendu|int if charge.attendu == charge.attendu|int else (charge.attendu|string)|replace('.', ',') }}</strong></div></div>
+    <div class="col"><div class="card card-body text-center"><small class="text-muted">Planifiée</small><strong>{{ charge.planifie|int if charge.planifie == charge.planifie|int else (charge.planifie|string)|replace('.', ',') }}</strong></div></div>
+    <div class="col"><div class="card card-body text-center"><small class="text-muted">Restante</small><strong>{{ charge.restant|int if charge.restant == charge.restant|int else (charge.restant|string)|replace('.', ',') }}</strong></div></div>
+    <div class="col"><div class="card card-body text-center"><small class="text-muted">Statut</small><span class="badge {% if charge.statut == 'COMPLET' %}bg-success{% elif charge.statut == 'SURCHARGE' %}bg-danger{% elif charge.statut == 'PARTIEL' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{% if charge.statut == 'SANS_AFFECTATION' %}Sans affectation{% elif charge.statut == 'SANS_PLANIFICATION' %}Non planifiée{% elif charge.statut == 'PARTIEL' %}Partiel{% elif charge.statut == 'COMPLET' %}Complet{% else %}Surcharge{% endif %}</span></div></div>
 </div>
 
 {% if affectations %}

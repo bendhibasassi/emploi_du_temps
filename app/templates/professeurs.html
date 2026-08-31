@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="page-heading">
-    <div><h1>Professeurs</h1><p>Personnel enseignant et disponibilités.</p></div>
+    <div><h1>Professeurs</h1><p>Charge hebdomadaire en équivalent séances.</p></div>
     <div class="page-actions">
                 <a href="{{ url_for('main.ajouter_professeur') }}" class="btn btn-primary">
                     <i class="fas fa-user-plus"></i> Ajouter
@@ -14,8 +14,21 @@
     </div>
 </div>
 
+<form method="GET" class="row g-2 align-items-end mb-4">
+    <div class="col-md-4">
+        <label for="annee_id" class="form-label">Année universitaire</label>
+        <select name="annee_id" id="annee_id" class="form-select">
+            <option value="">Année de travail (par défaut)</option>
+            {% for annee in annees %}<option value="{{ annee.id_annee }}" {% if annee_id == annee.id_annee %}selected{% endif %}>{{ annee.libelle }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="col-auto"><button type="submit" class="btn btn-primary">Afficher</button></div>
+</form>
+{% if aucune_annee_active %}<div class="alert alert-warning">Aucune année de travail active. Sélectionnez une année pour calculer les charges.</div>{% endif %}
+
 <div class="row">
     {% for professeur in professeurs %}
+        {% set charge = charges[professeur.id_professeur] %}
         <div class="col-md-4 mb-3">
             <div class="card">
                 <div class="card-body">
@@ -31,8 +44,15 @@
                         <strong>Téléphone :</strong> {{ professeur.telephone or 'Non renseigné' }}<br>
                         <strong>ID :</strong> {{ professeur.id_professeur }}
                     </p>
+                    <div class="row row-cols-5 g-1 text-center small mb-3">
+                        <div><span class="text-muted d-block">Affect.</span><strong>{{ charge.nb_affectations }}</strong></div>
+                        <div><span class="text-muted d-block">Prévue</span><strong>{{ charge.attendu|int if charge.attendu == charge.attendu|int else (charge.attendu|string)|replace('.', ',') }}</strong></div>
+                        <div><span class="text-muted d-block">Planifiée</span><strong>{{ charge.planifie|int if charge.planifie == charge.planifie|int else (charge.planifie|string)|replace('.', ',') }}</strong></div>
+                        <div><span class="text-muted d-block">Restante</span><strong>{{ charge.restant|int if charge.restant == charge.restant|int else (charge.restant|string)|replace('.', ',') }}</strong></div>
+                        <div><span class="text-muted d-block">Statut</span><span class="badge {% if charge.statut == 'COMPLET' %}bg-success{% elif charge.statut == 'SURCHARGE' %}bg-danger{% elif charge.statut == 'PARTIEL' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{% if charge.statut == 'SANS_AFFECTATION' %}Sans affectation{% elif charge.statut == 'SANS_PLANIFICATION' %}Non planifiée{% elif charge.statut == 'PARTIEL' %}Partiel{% elif charge.statut == 'COMPLET' %}Complet{% else %}Surcharge{% endif %}</span></div>
+                    </div>
                     <div class="d-flex flex-wrap gap-2">
-                        <a href="{{ url_for('main.affectations_professeur', id_professeur=professeur.id_professeur) }}"
+                        <a href="{{ url_for('main.affectations_professeur', id_professeur=professeur.id_professeur, annee_id=annee_id) }}"
                            class="btn btn-outline-primary btn-sm">
                             <i class="fas fa-list"></i> Voir les affectations
                         </a>

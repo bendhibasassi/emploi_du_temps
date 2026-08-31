@@ -1535,34 +1535,64 @@ def emploi_du_temps():
 
 @main.route('/professeurs')
 def professeurs():
-    """Lister les professeurs"""
-    professeurs = Professeur.query.all()
-    return render_template('professeurs.html', professeurs=professeurs)
+    """Lister les professeurs et leur charge pour une année donnée."""
+    annees_list = AnneeUniversitaire.query.order_by(
+        AnneeUniversitaire.date_debut.desc()
+    ).all()
+    annee_id, aucune_annee_active = determiner_annee_consultation()
+    professeurs_list = Professeur.query.options(
+        selectinload(Professeur.affectations).selectinload(Affectation.seances)
+    ).order_by(Professeur.nom, Professeur.prenom).all()
+    charges = {
+        professeur.id_professeur: professeur.calculer_charge(annee_id)
+        for professeur in professeurs_list
+    }
+    return render_template(
+        'professeurs.html',
+        professeurs=professeurs_list,
+        charges=charges,
+        annees=annees_list,
+        annee_id=annee_id,
+        aucune_annee_active=aucune_annee_active,
+    )
 
 
 @main.route('/professeurs/<int:id_professeur>/affectations')
 def affectations_professeur(id_professeur):
     """Consulter les affectations d'un professeur."""
     professeur = Professeur.query.get_or_404(id_professeur)
-    affectations_list = Affectation.query.filter_by(
-        id_professeur=id_professeur
-    ).options(
-        joinedload(Affectation.annee),
-        joinedload(Affectation.matiere),
-        joinedload(Affectation.section).joinedload(Section.niveau),
-        joinedload(Affectation.groupe),
-    ).order_by(
-        Affectation.id_annee,
-        Affectation.id_section,
-        Affectation.semestre,
-        Affectation.type_enseignement,
-        Affectation.id_groupe
+    annees_list = AnneeUniversitaire.query.order_by(
+        AnneeUniversitaire.date_debut.desc()
     ).all()
+    annee_id, aucune_annee_active = determiner_annee_consultation()
+    if annee_id is None:
+        affectations_list = []
+    else:
+        affectations_list = Affectation.query.filter_by(
+            id_professeur=id_professeur,
+            id_annee=annee_id,
+        ).options(
+            joinedload(Affectation.annee),
+            joinedload(Affectation.matiere),
+            joinedload(Affectation.section).joinedload(Section.niveau),
+            joinedload(Affectation.groupe),
+            selectinload(Affectation.seances),
+        ).order_by(
+            Affectation.id_section,
+            Affectation.semestre,
+            Affectation.type_enseignement,
+            Affectation.id_groupe
+        ).all()
+    charge = professeur.calculer_charge(annee_id, affectations_list)
 
     return render_template(
         'affectations_professeur.html',
         professeur=professeur,
-        affectations=affectations_list
+        affectations=affectations_list,
+        charge=charge,
+        annees=annees_list,
+        annee_id=annee_id,
+        aucune_annee_active=aucune_annee_active,
     )
 
 
