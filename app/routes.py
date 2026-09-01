@@ -1771,6 +1771,9 @@ def emploi_du_temps():
 @main.route('/professeurs')
 def professeurs():
     """Lister les professeurs et leur charge pour une année donnée."""
+    refus = administrateur_requis()
+    if refus:
+        return refus
     annees_list = AnneeUniversitaire.query.order_by(
         AnneeUniversitaire.date_debut.desc()
     ).all()
@@ -2350,6 +2353,15 @@ def modifier_groupe(id_groupe):
             flash(f'❌ Le groupe {code_groupe} existe déjà dans cette section !', 'danger')
             return redirect(url_for('main.modifier_groupe', id_groupe=id_groupe))
 
+        if (id_section != groupe.id_section and
+                Affectation.query.filter_by(id_groupe=id_groupe).first()):
+            flash(
+                'Impossible de déplacer ce groupe vers une autre section car '
+                'il est déjà utilisé dans des affectations.',
+                'danger'
+            )
+            return redirect(url_for('main.modifier_groupe', id_groupe=id_groupe))
+
         groupe.id_section = id_section
         groupe.code_groupe = code_groupe
         groupe.nom_groupe = nom_groupe
@@ -2852,6 +2864,9 @@ def exporter_modele_professeurs():
 @main.route('/historique')
 def historique():
     """Afficher l'historique des modifications"""
+    refus = administrateur_requis()
+    if refus:
+        return refus
     page = request.args.get('page', 1, type=int)
     per_page = 50
 
