@@ -1736,6 +1736,37 @@ def modifier_seance(id_seance):
     )
 
 
+@main.route('/seance/<int:id_seance>/annuler', methods=['POST'])
+def annuler_seance(id_seance):
+    """Annule une séance et journalise le changement dans une transaction."""
+    refus = administrateur_requis()
+    if refus:
+        return refus
+    seance = Seance.query.get_or_404(id_seance)
+    if seance.statut == 'ANNULEE':
+        flash('Cette séance est déjà annulée.', 'info')
+        return redirect(url_for('main.modifier_seance', id_seance=id_seance))
+
+    try:
+        ancien_statut = seance.statut
+        seance.statut = 'ANNULEE'
+        db.session.add(Historique(
+            utilisateur=session.get('admin_username') or 'Administrateur',
+            action='ANNULATION',
+            type_objet='SEANCE',
+            id_objet=id_seance,
+            ancienne_valeur=f'Statut: {ancien_statut}',
+            nouvelle_valeur='Statut: ANNULEE',
+            ip_adresse=request.remote_addr,
+        ))
+        db.session.commit()
+        flash('Séance annulée avec succès. Elle reste conservée.', 'success')
+    except Exception:
+        db.session.rollback()
+        flash('Impossible d’annuler la séance. Aucune modification enregistrée.', 'danger')
+    return redirect(url_for('main.modifier_seance', id_seance=id_seance))
+
+
 @main.route('/seance/<int:id_seance>/supprimer', methods=['POST'])
 def supprimer_seance(id_seance):
     """Supprimer une séance existante."""
