@@ -1088,6 +1088,38 @@ def ajouter_creneau():
     return render_template('formulaire_creneau.html', creneau=None)
 
 
+def verifier_conflits_modification_creneau(creneau, heure_debut, heure_fin):
+    """Simule les horaires sans modifier le créneau ni les séances."""
+    simulation = Creneau(heure_debut=heure_debut, heure_fin=heure_fin)
+    creneaux_chevauchants = filtrer_chevauchements_creneau(
+        db.session.query(Creneau.id_creneau), simulation
+    )
+    seances = Seance.query.filter(
+        Seance.id_creneau == creneau.id_creneau,
+        Seance.statut != 'ANNULEE'
+    ).all()
+    for seance in seances:
+        candidates = filtrer_semaines_compatibles(
+            Seance.query.join(Affectation).filter(
+                Seance.id_seance != seance.id_seance,
+                Seance.id_annee == seance.id_annee,
+                Seance.jour == seance.jour,
+                Seance.statut != 'ANNULEE',
+                or_(
+                    Seance.id_creneau == creneau.id_creneau,
+                    Seance.id_creneau.in_(creneaux_chevauchants)
+                )
+            ), seance.semaine_type
+        )
+        if (candidates.filter(or_(
+                Seance.id_salle == seance.id_salle,
+                Affectation.id_professeur == seance.affectation.id_professeur
+            )).first() or
+                verifier_conflit_etudiants(candidates, seance.affectation)):
+            return True
+    return False
+
+
 @main.route('/creneau/<int:id_creneau>/modifier', methods=['GET', 'POST'])
 def modifier_creneau(id_creneau):
     """Modifier un créneau horaire."""
@@ -1117,6 +1149,15 @@ def modifier_creneau(id_creneau):
             Creneau.id_creneau != id_creneau
         ).first():
             flash(f'L\'ordre {ordre} est déjà utilisé.', 'danger')
+            return redirect(url_for('main.modifier_creneau', id_creneau=id_creneau))
+
+        if ((heure_debut, heure_fin) != (creneau.heure_debut, creneau.heure_fin) and
+                verifier_conflits_modification_creneau(creneau, heure_debut, heure_fin)):
+            flash(
+                'Impossible de modifier ce créneau : les nouvelles heures '
+                'créeraient un conflit avec une ou plusieurs séances existantes.',
+                'danger'
+            )
             return redirect(url_for('main.modifier_creneau', id_creneau=id_creneau))
 
         creneau.heure_debut = heure_debut
