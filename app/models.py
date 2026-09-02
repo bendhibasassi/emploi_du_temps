@@ -279,8 +279,18 @@ class Seance(db.Model):
     salle = db.relationship('Salle', backref='seances', lazy=True)
     
     __table_args__ = (
-        db.UniqueConstraint('id_annee', 'jour', 'id_creneau', 'id_salle', 'semaine_type', 
-                           name='uq_seance_salle'),
+        db.Index(
+            'idx_seance_slot_active',
+            'id_annee',
+            'jour',
+            'id_creneau',
+            'id_salle',
+            'semaine_type',
+            unique=True,
+            sqlite_where=db.text(
+                "statut IS NULL OR statut != 'ANNULEE'"
+            )
+        ),
     )
 
 class Indisponibilite(db.Model):

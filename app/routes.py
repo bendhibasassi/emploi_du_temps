@@ -1449,7 +1449,8 @@ def ajouter_seance():
             ).filter(
                 Seance.id_annee == id_annee,
                 Seance.jour == jour,
-                Seance.id_salle == id_salle
+                Seance.id_salle == id_salle,
+                Seance.statut != 'ANNULEE'
             ), creneau_demande), semaine_type
         ).first()
         if salle_occupee:
@@ -1465,7 +1466,8 @@ def ajouter_seance():
             ).filter(
                 Seance.id_annee == id_annee,
                 Seance.jour == jour,
-                Affectation.id_professeur == id_professeur
+                Affectation.id_professeur == id_professeur,
+                Seance.statut != 'ANNULEE'
             ), creneau_demande), semaine_type
         ).first()
         if prof_occupe:
@@ -1480,7 +1482,8 @@ def ajouter_seance():
                 Creneau, Seance.id_creneau == Creneau.id_creneau
             ).filter(
                 Seance.id_annee == id_annee,
-                Seance.jour == jour
+                Seance.jour == jour,
+                Seance.statut != 'ANNULEE'
             ), creneau_demande), semaine_type), affectation)
         if conflit_etudiants:
             public = (f"La section {affectation.section.libelle}"
@@ -1520,17 +1523,20 @@ def ajouter_seance():
 
         try:
             db.session.add(seance)
-            db.session.commit()
+            db.session.flush()
 
             # Historique
-            ajouter_historique(
+            historique = Historique(
                 utilisateur='Administrateur',
                 action='AJOUT',
                 type_objet='SEANCE',
                 id_objet=seance.id_seance,
                 nouvelle_valeur=f"Prof: {id_professeur}, Matière: {id_matiere}, Section: {id_section}, Jour: {jour}, Créneau: {id_creneau}, Salle: {id_salle}",
-                ip=request.remote_addr
+                date_heure=datetime.utcnow(),
+                ip_adresse=request.remote_addr
             )
+            db.session.add(historique)
+            db.session.commit()
 
             flash('✅ Séance ajoutée avec succès !', 'success')
         except Exception as e:
@@ -1684,32 +1690,24 @@ def modifier_seance(id_seance):
             flash('❌ ' + ' '.join(conflits), 'danger')
             return redirect(url_for('main.modifier_seance', id_seance=id_seance))
 
-        conflit_capacite = verifier_capacite_salle(seance.affectation, id_salle)
-        if conflit_capacite:
-            salle, effectif = conflit_capacite
-            flash(
-                f'❌ Capacité insuffisante : {salle.nom_salle} '
-                f'({salle.capacite} places) pour {effectif} étudiants.',
-                'danger'
-            )
-            return redirect(url_for('main.modifier_seance', id_seance=id_seance))
-
         try:
             seance.jour = jour
             seance.id_creneau = id_creneau
             seance.id_salle = id_salle
             seance.semaine_type = semaine_type
             nouvelle_valeur = f"Jour: {seance.jour}, Créneau: {seance.id_creneau}, Salle: {seance.id_salle}"
-            db.session.commit()
-            ajouter_historique(
+            historique = Historique(
                 utilisateur='Administrateur',
                 action='MODIFICATION',
                 type_objet='SEANCE',
                 id_objet=seance.id_seance,
                 ancienne_valeur=ancienne_valeur,
                 nouvelle_valeur=nouvelle_valeur,
-                ip=request.remote_addr
+                date_heure=datetime.utcnow(),
+                ip_adresse=request.remote_addr
             )
+            db.session.add(historique)
+            db.session.commit()
             flash('✅ Séance modifiée avec succès !', 'success')
             return redirect(url_for('main.emploi_du_temps'))
         except Exception as e:
@@ -1773,15 +1771,18 @@ def supprimer_seance(id_seance):
     seance = Seance.query.get_or_404(id_seance)
     ancienne_valeur = (f"Affectation: {seance.id_affectation}, Jour: {seance.jour}, "
                        f"Créneau: {seance.id_creneau}, Salle: {seance.id_salle}")
+    ip_adresse = request.remote_addr
     try:
-        ajouter_historique(
+        historique = Historique(
             utilisateur='Administrateur',
             action='SUPPRESSION',
             type_objet='SEANCE',
             id_objet=id_seance,
             ancienne_valeur=ancienne_valeur,
-            ip=request.remote_addr
+            date_heure=datetime.utcnow(),
+            ip_adresse=ip_adresse
         )
+        db.session.add(historique)
         db.session.delete(seance)
         db.session.commit()
         flash('✅ Séance supprimée avec succès !', 'success')
@@ -1798,7 +1799,7 @@ def emploi_du_temps():
     ).all()
     annee_id, aucune_annee_active = determiner_annee_consultation()
 
-    query = Seance.query
+    query = Seance.query.filter(Seance.statut != 'ANNULEE')
     if aucune_annee_active:
         query = query.filter(Seance.id_seance.is_(None))
     elif annee_id is not None:
