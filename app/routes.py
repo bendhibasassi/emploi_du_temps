@@ -2013,7 +2013,9 @@ def emploi_du_temps_professeur(id_professeur):
     seances = query.options(
         joinedload(Seance.affectation).joinedload(Affectation.annee),
         joinedload(Seance.affectation).joinedload(Affectation.matiere),
-        joinedload(Seance.affectation).joinedload(Affectation.section).joinedload(Section.niveau),
+        joinedload(Seance.affectation).joinedload(Affectation.section).joinedload(
+            Section.niveau
+        ).load_only(Niveau.id_niveau, Niveau.code_niveau, Niveau.libelle),
         joinedload(Seance.affectation).joinedload(Affectation.groupe),
         joinedload(Seance.salle),
         joinedload(Seance.creneau),
