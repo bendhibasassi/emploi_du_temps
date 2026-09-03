@@ -21,6 +21,17 @@ class AnneeUniversitaire(db.Model):
     def __repr__(self):
         return f"<Annee {self.libelle}>"
 
+class Formation(db.Model):
+    __tablename__ = "tbl_formations"
+
+    id_formation = db.Column(db.Integer, primary_key=True)
+    code_formation = db.Column(db.String(30), nullable=False, unique=True)
+    libelle = db.Column(db.String(200), nullable=False, unique=True)
+    cycle = db.Column(db.String(20), nullable=False)
+    actif = db.Column(db.Boolean, nullable=False, default=True)
+
+    niveaux = db.relationship('Niveau', back_populates='formation')
+
 class Niveau(db.Model):
     __tablename__ = "tbl_niveaux"
     
@@ -30,7 +41,15 @@ class Niveau(db.Model):
     specialite = db.Column(db.String(150), nullable=False)
     annee_etude = db.Column(db.String(10), nullable=False)
     libelle = db.Column(db.String(200), unique=True, nullable=False)
+    id_formation = db.Column(
+        db.Integer,
+        db.ForeignKey('tbl_formations.id_formation'),
+        nullable=True,
+        index=True,
+    )
     actif = db.Column(db.Boolean, default=True)
+
+    formation = db.relationship('Formation', back_populates='niveaux')
 
 class Section(db.Model):
     __tablename__ = "tbl_sections"
