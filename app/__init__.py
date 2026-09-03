@@ -104,7 +104,6 @@ def create_app():
     
     # Créer les tables si elles n'existent pas
     with app.app_context():
-        db.create_all()
         # Vérification
         from app.models import Professeur
         print(f"Professeurs dans la base Flask : {Professeur.query.count()}")
