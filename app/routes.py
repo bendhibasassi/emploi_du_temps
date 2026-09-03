@@ -12,7 +12,7 @@ from flask import (
 from werkzeug.security import check_password_hash
 from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload, selectinload, load_only
 from app import db
 from app.models import (
     Professeur, Matiere, Niveau, Section, Groupe, Salle, Creneau,
@@ -1799,27 +1799,79 @@ def emploi_du_temps():
     ).all()
     annee_id, aucune_annee_active = determiner_annee_consultation()
 
-    query = Seance.query.filter(Seance.statut != 'ANNULEE')
+    def lire_id_filtre(nom):
+        valeur = request.args.get(nom, '').strip()
+        if not valeur:
+            return None
+        try:
+            return int(valeur)
+        except ValueError:
+            return -1
+
+    niveau_id = lire_id_filtre('niveau_id')
+    section_id = lire_id_filtre('section_id')
+    groupe_id = lire_id_filtre('groupe_id')
+    professeur_id = lire_id_filtre('professeur_id')
+    matiere_id = lire_id_filtre('matiere_id')
+    salle_id = lire_id_filtre('salle_id')
+    type_enseignement = request.args.get('type_enseignement', '').strip().upper()
+
+    query = (Seance.query
+             .join(Affectation, Seance.id_affectation == Affectation.id_affectation)
+             .join(Section, Affectation.id_section == Section.id_section)
+             .join(Niveau, Section.id_niveau == Niveau.id_niveau)
+             .outerjoin(Groupe, Affectation.id_groupe == Groupe.id_groupe)
+             .join(Professeur, Affectation.id_professeur == Professeur.id_professeur)
+             .join(Matiere, Affectation.id_matiere == Matiere.id_matiere)
+             .join(Salle, Seance.id_salle == Salle.id_salle)
+             .filter(Seance.statut != 'ANNULEE')
+             .options(
+                 joinedload(Seance.affectation).joinedload(Affectation.professeur),
+                 joinedload(Seance.affectation).joinedload(Affectation.matiere),
+                 joinedload(Seance.affectation).joinedload(Affectation.section).joinedload(
+                     Section.niveau
+                 ).load_only(Niveau.id_niveau, Niveau.libelle),
+                 joinedload(Seance.affectation).joinedload(Affectation.groupe),
+                 joinedload(Seance.salle),
+                 joinedload(Seance.creneau),
+             ))
     if aucune_annee_active:
         query = query.filter(Seance.id_seance.is_(None))
     elif annee_id is not None:
         query = query.filter(Seance.id_annee == annee_id)
+    if niveau_id is not None:
+        query = query.filter(Section.id_niveau == niveau_id)
+    if section_id is not None:
+        query = query.filter(Affectation.id_section == section_id)
+    if groupe_id is not None:
+        query = query.filter(Affectation.id_groupe == groupe_id)
+    if professeur_id is not None:
+        query = query.filter(Affectation.id_professeur == professeur_id)
+    if matiere_id is not None:
+        query = query.filter(Affectation.id_matiere == matiere_id)
+    if salle_id is not None:
+        query = query.filter(Seance.id_salle == salle_id)
+    if type_enseignement in {'CM', 'TD', 'TP'}:
+        query = query.filter(Affectation.type_enseignement == type_enseignement)
+    elif type_enseignement:
+        query = query.filter(Affectation.type_enseignement == '__INVALIDE__')
     seances = query.all()
     
     planning = []
     for seance in seances:
-        affectation = Affectation.query.get(seance.id_affectation)
+        affectation = seance.affectation
         if affectation:
-            prof = Professeur.query.get(affectation.id_professeur)
-            matiere = Matiere.query.get(affectation.id_matiere)
-            section = Section.query.get(affectation.id_section)
-            salle = Salle.query.get(seance.id_salle)
-            creneau = Creneau.query.get(seance.id_creneau)
+            prof = affectation.professeur
+            matiere = affectation.matiere
+            section = affectation.section
+            salle = seance.salle
+            creneau = seance.creneau
             
             planning.append({
                 'id_seance': seance.id_seance,
                 'prof': f"{prof.prenom} {prof.nom}" if prof else "Inconnu",
                 'matiere': matiere.nom_matiere if matiere else "Inconnu",
+                'niveau': section.niveau.libelle if section and section.niveau else "Inconnu",
                 'section': section.libelle if section else "Inconnu",
                 'groupe': affectation.groupe.code_groupe if affectation.groupe else None,
                 'type_enseignement': affectation.type_enseignement,
@@ -1838,7 +1890,25 @@ def emploi_du_temps():
         planning=planning,
         annees=annees_list,
         annee_id=annee_id,
-        aucune_annee_active=aucune_annee_active
+        aucune_annee_active=aucune_annee_active,
+        niveaux=db.session.execute(
+            db.text(
+                'SELECT id_niveau, libelle FROM tbl_niveaux '
+                'ORDER BY libelle'
+            )
+        ).mappings().all(),
+        sections=Section.query.order_by(Section.libelle).all(),
+        groupes=Groupe.query.order_by(Groupe.nom_groupe).all(),
+        professeurs=Professeur.query.order_by(Professeur.nom, Professeur.prenom).all(),
+        matieres=Matiere.query.order_by(Matiere.nom_matiere).all(),
+        salles=Salle.query.order_by(Salle.nom_salle).all(),
+        niveau_id=niveau_id,
+        section_id=section_id,
+        groupe_id=groupe_id,
+        professeur_id=professeur_id,
+        matiere_id=matiere_id,
+        salle_id=salle_id,
+        type_enseignement=type_enseignement,
     )
 
 @main.route('/professeurs')

@@ -9,7 +9,7 @@
 <div class="alert alert-warning">Aucune année de travail active. Activez une année universitaire pour consulter son emploi du temps.</div>
 {% endif %}
 <form method="GET" class="row g-2 align-items-end mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <label for="annee_id" class="form-label">Année universitaire</label>
         <select name="annee_id" id="annee_id" class="form-select">
             <option value="">Année de travail (par défaut)</option>
@@ -18,6 +18,13 @@
             {% endfor %}
         </select>
     </div>
+    <div class="col-md-3"><label for="niveau_id" class="form-label">Niveau</label><select name="niveau_id" id="niveau_id" class="form-select"><option value="">Tous les niveaux</option>{% for niveau in niveaux %}<option value="{{ niveau.id_niveau }}" {% if niveau_id == niveau.id_niveau %}selected{% endif %}>{{ niveau.libelle }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label for="section_id" class="form-label">Section</label><select name="section_id" id="section_id" class="form-select"><option value="">Toutes les sections</option>{% for section in sections %}<option value="{{ section.id_section }}" {% if section_id == section.id_section %}selected{% endif %}>{{ section.libelle }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label for="groupe_id" class="form-label">Groupe</label><select name="groupe_id" id="groupe_id" class="form-select"><option value="">Tous les groupes</option>{% for groupe in groupes %}<option value="{{ groupe.id_groupe }}" {% if groupe_id == groupe.id_groupe %}selected{% endif %}>{{ groupe.nom_groupe }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label for="professeur_id" class="form-label">Professeur</label><select name="professeur_id" id="professeur_id" class="form-select"><option value="">Tous les professeurs</option>{% for professeur in professeurs %}<option value="{{ professeur.id_professeur }}" {% if professeur_id == professeur.id_professeur %}selected{% endif %}>{{ professeur.prenom or '' }} {{ professeur.nom }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label for="matiere_id" class="form-label">Matière</label><select name="matiere_id" id="matiere_id" class="form-select"><option value="">Toutes les matières</option>{% for matiere in matieres %}<option value="{{ matiere.id_matiere }}" {% if matiere_id == matiere.id_matiere %}selected{% endif %}>{{ matiere.nom_matiere }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label for="type_enseignement" class="form-label">Type</label><select name="type_enseignement" id="type_enseignement" class="form-select"><option value="">Tous les types</option>{% for type in ('CM', 'TD', 'TP') %}<option value="{{ type }}" {% if type_enseignement == type %}selected{% endif %}>{{ type }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label for="salle_id" class="form-label">Salle</label><select name="salle_id" id="salle_id" class="form-select"><option value="">Toutes les salles</option>{% for salle in salles %}<option value="{{ salle.id_salle }}" {% if salle_id == salle.id_salle %}selected{% endif %}>{{ salle.nom_salle }}</option>{% endfor %}</select></div>
     <div class="col-auto d-flex gap-2">
         <button type="submit" class="btn btn-primary">Filtrer</button>
         <a href="{{ url_for('main.emploi_du_temps') }}" class="btn btn-secondary">Réinitialiser</a>
@@ -32,7 +39,7 @@
             <tr>
                 <td><strong>{{ seance.jour }}</strong><br><small class="text-muted">{{ seance.debut }} – {{ seance.fin }}</small></td>
                 <td><span class="badge teaching-type type-{{ seance.type_enseignement|lower }}">{{ seance.type_enseignement }}</span><br><span>{{ seance.matiere }}</span></td>
-                <td>{{ seance.section }}{% if seance.groupe %}<br><small class="text-muted">Groupe {{ seance.groupe }}</small>{% endif %}</td>
+                <td><strong>{{ seance.niveau }}</strong><br>{{ seance.section }}{% if seance.groupe %}<br><small class="text-muted">Groupe {{ seance.groupe }}</small>{% endif %}</td>
                 <td>{{ seance.prof }}</td>
                 <td>{{ seance.salle }}<br><small class="text-muted">{% if seance.capacite is not none %}{{ seance.capacite }} places{% else %}Capacité non renseignée{% endif %}</small></td>
                 <td><span class="badge bg-secondary">{{ seance.semaine_type }}</span></td>
