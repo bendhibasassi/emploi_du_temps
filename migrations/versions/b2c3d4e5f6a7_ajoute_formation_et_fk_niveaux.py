@@ -21,7 +21,6 @@ def upgrade():
         sa.Column("id_formation", sa.Integer(), primary_key=True),
         sa.Column("code_formation", sa.String(length=30), nullable=False),
         sa.Column("libelle", sa.String(length=200), nullable=False),
-        sa.Column("cycle", sa.String(length=20), nullable=False),
         sa.Column("actif", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.UniqueConstraint("code_formation"),
         sa.UniqueConstraint("libelle"),

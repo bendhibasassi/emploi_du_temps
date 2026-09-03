@@ -27,7 +27,6 @@ class Formation(db.Model):
     id_formation = db.Column(db.Integer, primary_key=True)
     code_formation = db.Column(db.String(30), nullable=False, unique=True)
     libelle = db.Column(db.String(200), nullable=False, unique=True)
-    cycle = db.Column(db.String(20), nullable=False)
     actif = db.Column(db.Boolean, nullable=False, default=True)
 
     niveaux = db.relationship('Niveau', back_populates='formation')
