@@ -35,7 +35,7 @@
     <a class="btn btn-outline-primary {% if vue == 'grille' %}active{% endif %}" href="{{ url_for('main.emploi_du_temps', **dict(request.args, vue='grille')) }}">Vue grille</a>
 </div>
 {% if vue == 'grille' %}
-<div class="table-responsive planning-table"><table class="table table-bordered"><thead><tr><th>Créneau</th>{% for numero, jour in jours_grille %}<th>{{ jour }}</th>{% endfor %}</tr></thead><tbody>{% for creneau in creneaux_grille %}<tr><th>{{ creneau.heure_debut.strftime('%H:%M') }} – {{ creneau.heure_fin.strftime('%H:%M') }}</th>{% for numero, jour in jours_grille %}<td>{% for seance in grille.get(creneau.id_creneau, {}).get(numero, []) %}<div class="mb-2"><strong>{{ seance.matiere }}</strong><br><small>{{ seance.prof }} · {{ seance.niveau }} · {{ seance.section }}{% if seance.groupe %} · {{ seance.groupe }}{% endif %}<br>{{ seance.type_enseignement }} · {{ seance.salle }} · {{ seance.semaine_type }}</small></div>{% endfor %}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+<div class="table-responsive planning-table"><table class="table table-bordered"><thead><tr><th>Créneau</th>{% for numero, jour in jours_grille %}<th>{{ jour }}</th>{% endfor %}</tr></thead><tbody>{% for creneau in creneaux_grille %}<tr><th>{{ creneau.heure_debut.strftime('%H:%M') }} – {{ creneau.heure_fin.strftime('%H:%M') }}</th>{% for numero, jour in jours_grille %}<td>{% for seance in grille.get(creneau.id_creneau, {}).get(numero, []) %}<div class="mb-2"><strong>{{ seance.matiere }}</strong><br><small>{% if seance.id_professeur %}<a href="{{ url_for('main.emploi_du_temps_professeur', id_professeur=seance.id_professeur, annee_id=annee_id) }}">{{ seance.prof }}</a>{% else %}{{ seance.prof }}{% endif %} · {{ seance.niveau }} · {{ seance.section }}{% if seance.groupe %} · {{ seance.groupe }}{% endif %}<br>{{ seance.type_enseignement }} · {{ seance.salle }} · {{ seance.semaine_type }}</small></div>{% endfor %}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
 {% elif planning %}
 <div class="table-responsive planning-table">
     <table class="table table-hover">
@@ -46,7 +46,7 @@
                 <td><strong>{{ seance.jour }}</strong><br><small class="text-muted">{{ seance.debut }} – {{ seance.fin }}</small></td>
                 <td><span class="badge teaching-type type-{{ seance.type_enseignement|lower }}">{{ seance.type_enseignement }}</span><br><span>{{ seance.matiere }}</span></td>
                 <td><strong>{{ seance.niveau }}</strong><br>{{ seance.section }}{% if seance.groupe %}<br><small class="text-muted">Groupe {{ seance.groupe }}</small>{% endif %}</td>
-                <td>{{ seance.prof }}</td>
+                <td>{% if seance.id_professeur %}<a href="{{ url_for('main.emploi_du_temps_professeur', id_professeur=seance.id_professeur, annee_id=annee_id) }}">{{ seance.prof }}</a>{% else %}{{ seance.prof }}{% endif %}</td>
                 <td>{{ seance.salle }}<br><small class="text-muted">{% if seance.capacite is not none %}{{ seance.capacite }} places{% else %}Capacité non renseignée{% endif %}</small></td>
                 <td><span class="badge bg-secondary">{{ seance.semaine_type }}</span></td>
                 <td class="action-cell">

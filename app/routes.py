@@ -1870,6 +1870,7 @@ def emploi_du_temps():
             planning.append({
                 'id_seance': seance.id_seance,
                 'prof': f"{prof.prenom} {prof.nom}" if prof else "Inconnu",
+                'id_professeur': prof.id_professeur if prof else None,
                 'matiere': matiere.nom_matiere if matiere else "Inconnu",
                 'niveau': section.niveau.libelle if section and section.niveau else "Inconnu",
                 'section': section.libelle if section else "Inconnu",
