@@ -1884,6 +1884,17 @@ def emploi_du_temps():
             })
     
     planning = sorted(planning, key=lambda x: (list(JOURS.values()).index(x['jour']) if x['jour'] in JOURS.values() else 99, x['debut']))
+    vue = request.args.get('vue', 'liste').strip().lower()
+    if vue not in {'liste', 'grille'}:
+        vue = 'liste'
+    jours_grille = list(JOURS.items())
+    creneaux_grille = sorted({s.creneau for s in seances if s.creneau}, key=lambda c: (c.heure_debut, c.heure_fin))
+    grille = {}
+    for item in planning:
+        creneau = next((s.creneau for s in seances if s.id_seance == item['id_seance']), None)
+        if creneau:
+            numero = next((n for n, lib in JOURS.items() if lib == item['jour']), None)
+            grille.setdefault(creneau.id_creneau, {}).setdefault(numero, []).append(item)
     
     return render_template(
         'emploi_du_temps.html',
@@ -1909,6 +1920,10 @@ def emploi_du_temps():
         matiere_id=matiere_id,
         salle_id=salle_id,
         type_enseignement=type_enseignement,
+        vue=vue,
+        jours_grille=jours_grille,
+        creneaux_grille=creneaux_grille,
+        grille=grille,
     )
 
 @main.route('/professeurs')
