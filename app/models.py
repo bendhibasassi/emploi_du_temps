@@ -30,6 +30,29 @@ class Formation(db.Model):
     actif = db.Column(db.Boolean, nullable=False, default=True)
 
     niveaux = db.relationship('Niveau', back_populates='formation')
+    specialites = db.relationship('Specialite', back_populates='formation')
+
+class Specialite(db.Model):
+    __tablename__ = "tbl_specialites"
+
+    id_specialite = db.Column(db.Integer, primary_key=True)
+    id_formation = db.Column(
+        db.Integer,
+        db.ForeignKey('tbl_formations.id_formation'),
+        nullable=False,
+        index=True,
+    )
+    code_specialite = db.Column(db.String(50), nullable=False)
+    libelle = db.Column(db.String(200), nullable=False)
+    actif = db.Column(db.Boolean, nullable=False, default=True)
+
+    formation = db.relationship('Formation', back_populates='specialites')
+    niveaux = db.relationship('Niveau', back_populates='specialite_ref')
+
+    __table_args__ = (
+        db.UniqueConstraint('id_formation', 'code_specialite', name='uq_specialite_formation_code'),
+        db.UniqueConstraint('id_formation', 'libelle', name='uq_specialite_formation_libelle'),
+    )
 
 class Niveau(db.Model):
     __tablename__ = "tbl_niveaux"
@@ -46,9 +69,16 @@ class Niveau(db.Model):
         nullable=True,
         index=True,
     )
+    id_specialite = db.Column(
+        db.Integer,
+        db.ForeignKey('tbl_specialites.id_specialite'),
+        nullable=True,
+        index=True,
+    )
     actif = db.Column(db.Boolean, default=True)
 
     formation = db.relationship('Formation', back_populates='niveaux')
+    specialite_ref = db.relationship('Specialite', back_populates='niveaux')
 
 class Section(db.Model):
     __tablename__ = "tbl_sections"
