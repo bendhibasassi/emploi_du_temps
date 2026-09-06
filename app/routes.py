@@ -2442,7 +2442,8 @@ def ajouter_groupe():
         if not id_section or not code_groupe or not nom_groupe:
             flash('❌ La section, le code et le nom sont obligatoires !', 'danger')
             return redirect(url_for('main.ajouter_groupe'))
-        if Section.query.get(id_section) is None:
+        section = Section.query.get(id_section)
+        if section is None or not section.actif or section.niveau is None or not section.niveau.actif:
             flash('❌ La section sélectionnée est invalide !', 'danger')
             return redirect(url_for('main.ajouter_groupe'))
         try:
@@ -2494,7 +2495,10 @@ def ajouter_groupe():
             flash(f'❌ Erreur : {e}', 'danger')
 
     # GET : Afficher le formulaire
-    sections = Section.query.filter_by(actif=True).all()
+    sections = Section.query.join(Niveau).filter(
+        Section.actif.is_(True),
+        Niveau.actif.is_(True)
+    ).all()
     return render_template('ajouter_groupe.html', sections=sections)
 
 
@@ -2514,7 +2518,12 @@ def modifier_groupe(id_groupe):
         if not id_section or not code_groupe or not nom_groupe:
             flash('❌ La section, le code et le nom sont obligatoires !', 'danger')
             return redirect(url_for('main.modifier_groupe', id_groupe=id_groupe))
-        if Section.query.get(id_section) is None:
+        section = Section.query.get(id_section)
+        if section is None:
+            flash('❌ La section sélectionnée est invalide !', 'danger')
+            return redirect(url_for('main.modifier_groupe', id_groupe=id_groupe))
+        if (id_section != groupe.id_section and
+                (not section.actif or section.niveau is None or not section.niveau.actif)):
             flash('❌ La section sélectionnée est invalide !', 'danger')
             return redirect(url_for('main.modifier_groupe', id_groupe=id_groupe))
         try:
@@ -2569,10 +2578,10 @@ def modifier_groupe(id_groupe):
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
-    sections = Section.query.filter(or_(
-        Section.actif.is_(True),
-        Section.id_section == groupe.id_section
-    )).all()
+    sections = Section.query.join(Niveau).filter(
+        (Section.actif.is_(True) & Niveau.actif.is_(True)) |
+        (Section.id_section == groupe.id_section)
+    ).all()
     return render_template('modifier_groupe.html', groupe=groupe, sections=sections)
 
 
