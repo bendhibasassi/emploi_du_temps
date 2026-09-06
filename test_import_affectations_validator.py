@@ -40,6 +40,8 @@ class ValidatorTests(unittest.TestCase):
     def test_valid_and_invalid(self):
         result = valider_lignes_import(self.session, [self.ligne(), self.ligne(Semestre='S9')], self.annee)
         self.assertEqual(result['resultats'][0]['statut'], 'PRETE_A_IMPORTER')
+        self.assertEqual(result['resultats'][0]['valeurs']['semestre'], 1)
+        self.assertEqual(result['resultats'][0]['valeurs']['type_enseignement'], 'TD')
         self.assertEqual(result['resultats'][1]['statut'], 'ERREUR_BLOQUANTE')
 
     def test_no_session_writes(self):
@@ -145,6 +147,27 @@ class ValidatorTests(unittest.TestCase):
 
         self.session.objects[Affectation].clear()
         result = valider_lignes_import(self.session, [self.ligne(), self.ligne()], self.annee)
+        self.assertEqual(result['resultats'][0]['statut'], 'PRETE_A_IMPORTER')
+        self.assertEqual(result['resultats'][1]['statut'], 'DOUBLON_IGNORE')
+
+    def test_doublon_base_ignore_en_mode_remplacement(self):
+        from app.models import Affectation
+        existing = SimpleNamespace(
+            id_annee=9, id_professeur=1, id_matiere=2, id_section=3,
+            id_groupe=4, type_enseignement='TD', semestre=1,
+        )
+        self.session.objects[Affectation].append(existing)
+        result = valider_lignes_import(
+            self.session, [self.ligne()], self.annee,
+            verifier_doublons_base=False,
+        )
+        self.assertEqual(result['resultats'][0]['statut'], 'PRETE_A_IMPORTER')
+
+    def test_doublon_fichier_controle_en_mode_remplacement(self):
+        result = valider_lignes_import(
+            self.session, [self.ligne(), self.ligne()], self.annee,
+            verifier_doublons_base=False,
+        )
         self.assertEqual(result['resultats'][0]['statut'], 'PRETE_A_IMPORTER')
         self.assertEqual(result['resultats'][1]['statut'], 'DOUBLON_IGNORE')
 

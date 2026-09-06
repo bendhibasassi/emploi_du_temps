@@ -49,7 +49,8 @@ def _unique(query, champ, valeur):
     return objets[0], None
 
 
-def valider_lignes_import(session, lignes, annee):
+def valider_lignes_import(
+        session, lignes, annee, verifier_doublons_base=True):
     """Retourne un rapport structuré sans add/delete/flush/commit."""
     rapport = {'statut_global': 'PRETE_A_IMPORTER', 'resultats': [],
                'colonnes_attendues': sorted(COLONNES_ATTENDUES)}
@@ -58,7 +59,10 @@ def valider_lignes_import(session, lignes, annee):
         rapport['erreur'] = "L'année universitaire est introuvable."
         return rapport
     deja = set()
-    existants = session.query(Affectation).filter_by(id_annee=annee.id_annee).all()
+    existants = (
+        session.query(Affectation).filter_by(id_annee=annee.id_annee).all()
+        if verifier_doublons_base else []
+    )
     for numero, ligne in enumerate(lignes, 2):
         erreurs, avertissements, resolues = [], [], {}
         if set(ligne) != COLONNES_ATTENDUES:
@@ -114,7 +118,10 @@ def valider_lignes_import(session, lignes, annee):
             erreurs.append('Une affectation TD ou TP doit cibler un groupe.')
         semestre, err = valider_semestre_import(resolues.get('matiere'), ligne.get('Semestre')) if resolues.get('matiere') else (None, 'Matiere introuvable.')
         if err: erreurs.append(err)
-        valeurs = {}
+        valeurs = {
+            'semestre': semestre,
+            'type_enseignement': type_enseignement,
+        }
         for cle, lib, positif, vide in [('Nb_seances_semaine','Nb_seances_semaine',True,False),('Duree_seance_minutes','Duree_seance_minutes',True,False),('Volume_total_minutes','Volume_total_minutes',True,True),('Priorite','Priorite',False,False)]:
             valeurs[cle], err = _entier(ligne.get(cle), lib, positif, vide)
             if err: erreurs.append(err)
