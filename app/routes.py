@@ -960,7 +960,8 @@ def ajouter_section():
         if not id_niveau or not code_section or not libelle:
             flash('Niveau, code et libellé sont obligatoires.', 'danger')
             return redirect(url_for('main.ajouter_section'))
-        if Niveau.query.get(id_niveau) is None:
+        niveau = Niveau.query.get(id_niveau)
+        if niveau is None or not niveau.actif:
             flash('Le niveau sélectionné est invalide.', 'danger')
             return redirect(url_for('main.ajouter_section'))
         try:
@@ -988,7 +989,7 @@ def ajouter_section():
         flash(f'Section {code_section} ajoutée avec succès.', 'success')
         return redirect(url_for('main.niveaux_sections'))
 
-    niveaux = Niveau.query.order_by(Niveau.code_niveau).all()
+    niveaux = Niveau.query.filter_by(actif=True).order_by(Niveau.code_niveau).all()
     return render_template(
         'formulaire_section.html', section=None, niveaux=niveaux
     )
@@ -1007,8 +1008,18 @@ def modifier_section(id_section):
         if not id_niveau or not code_section or not libelle:
             flash('Niveau, code et libellé sont obligatoires.', 'danger')
             return redirect(url_for('main.modifier_section', id_section=id_section))
-        if Niveau.query.get(id_niveau) is None:
+        niveau = Niveau.query.get(id_niveau)
+        if niveau is None or (not niveau.actif and id_niveau != section.id_niveau):
             flash('Le niveau sélectionné est invalide.', 'danger')
+            return redirect(url_for('main.modifier_section', id_section=id_section))
+        if id_niveau != section.id_niveau and Affectation.query.filter_by(
+            id_section=id_section
+        ).first() is not None:
+            flash(
+                'Impossible de changer le niveau de cette section : '
+                'elle est déjà utilisée par une ou plusieurs affectations.',
+                'danger'
+            )
             return redirect(url_for('main.modifier_section', id_section=id_section))
         try:
             effectif = int(effectif_texte) if effectif_texte else 0
@@ -1035,7 +1046,9 @@ def modifier_section(id_section):
         flash(f'Section {code_section} modifiée avec succès.', 'success')
         return redirect(url_for('main.niveaux_sections'))
 
-    niveaux = Niveau.query.order_by(Niveau.code_niveau).all()
+    niveaux = Niveau.query.filter(
+        (Niveau.actif.is_(True)) | (Niveau.id_niveau == section.id_niveau)
+    ).order_by(Niveau.code_niveau).all()
     return render_template(
         'formulaire_section.html', section=section, niveaux=niveaux
     )
@@ -2632,7 +2645,8 @@ def ajouter_matiere():
             flash('❌ Le semestre sélectionné est invalide !', 'danger')
             return redirect(url_for('main.ajouter_matiere'))
 
-        if not Niveau.query.get(id_niveau):
+        niveau = Niveau.query.get(id_niveau)
+        if niveau is None or not niveau.actif:
             flash('❌ Le niveau sélectionné est invalide !', 'danger')
             return redirect(url_for('main.ajouter_matiere'))
 
@@ -2675,7 +2689,7 @@ def ajouter_matiere():
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
-    niveaux = Niveau.query.order_by(Niveau.code_niveau, Niveau.libelle).all()
+    niveaux = Niveau.query.filter_by(actif=True).order_by(Niveau.code_niveau, Niveau.libelle).all()
     return render_template(
         'ajouter_matiere.html',
         niveaux=niveaux,
@@ -2705,7 +2719,8 @@ def modifier_matiere(id_matiere):
             flash('❌ Le semestre sélectionné est invalide !', 'danger')
             return redirect(url_for('main.modifier_matiere', id_matiere=id_matiere))
 
-        if not Niveau.query.get(id_niveau):
+        niveau = Niveau.query.get(id_niveau)
+        if niveau is None or (not niveau.actif and id_niveau != matiere.id_niveau):
             flash('❌ Le niveau sélectionné est invalide !', 'danger')
             return redirect(url_for('main.modifier_matiere', id_matiere=id_matiere))
 
@@ -2752,7 +2767,9 @@ def modifier_matiere(id_matiere):
             db.session.rollback()
             flash(f'❌ Erreur : {e}', 'danger')
 
-    niveaux = Niveau.query.order_by(Niveau.code_niveau, Niveau.libelle).all()
+    niveaux = Niveau.query.filter(
+        (Niveau.actif.is_(True)) | (Niveau.id_niveau == matiere.id_niveau)
+    ).order_by(Niveau.code_niveau, Niveau.libelle).all()
     return render_template(
         'modifier_matiere.html',
         matiere=matiere,
