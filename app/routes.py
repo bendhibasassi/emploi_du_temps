@@ -561,6 +561,26 @@ TYPES_ENSEIGNEMENT = ('CM', 'TD', 'TP')
 
 def contexte_formulaire_affectation(affectation=None):
     """Charge les référentiels nécessaires au formulaire d'affectation."""
+    matieres_query = Matiere.query.join(Niveau).filter(
+        Matiere.actif.is_(True), Niveau.actif.is_(True)
+    )
+    sections_query = Section.query.join(Niveau).filter(
+        Section.actif.is_(True), Niveau.actif.is_(True)
+    )
+    groupes_query = Groupe.query.join(Section).join(Niveau).filter(
+        Groupe.actif.is_(True), Section.actif.is_(True), Niveau.actif.is_(True)
+    )
+    if affectation:
+        matieres_query = matieres_query.union(
+            Matiere.query.filter(Matiere.id_matiere == affectation.id_matiere)
+        )
+        sections_query = sections_query.union(
+            Section.query.filter(Section.id_section == affectation.id_section)
+        )
+        if affectation.id_groupe:
+            groupes_query = groupes_query.union(
+                Groupe.query.filter(Groupe.id_groupe == affectation.id_groupe)
+            )
     return {
         'affectation': affectation,
         'annees': AnneeUniversitaire.query.order_by(
@@ -569,13 +589,11 @@ def contexte_formulaire_affectation(affectation=None):
         'professeurs': Professeur.query.order_by(
             Professeur.nom, Professeur.prenom
         ).all(),
-        'matieres': Matiere.query.order_by(
-            Matiere.code_matiere
-        ).all(),
-        'sections': Section.query.options(joinedload(Section.niveau)).order_by(
+        'matieres': matieres_query.order_by(Matiere.code_matiere).all(),
+        'sections': sections_query.options(joinedload(Section.niveau)).order_by(
             Section.id_niveau, Section.code_section
         ).all(),
-        'groupes': Groupe.query.order_by(
+        'groupes': groupes_query.order_by(
             Groupe.id_section, Groupe.code_groupe
         ).all(),
         'types_enseignement': TYPES_ENSEIGNEMENT,
@@ -602,8 +620,34 @@ def lire_affectation_formulaire(affectation=None):
     requis = ('annee', 'professeur', 'matiere', 'section')
     if any(objets[cle] is None for cle in requis):
         return None, 'Année, professeur, matière et section valides sont obligatoires.'
+    matiere_inchangee = bool(
+        affectation and affectation.id_matiere == id_matiere
+    )
+    if (not matiere_inchangee and
+            (not objets['matiere'].actif or objets['matiere'].niveau is None or
+             not objets['matiere'].niveau.actif)):
+        return None, (
+            'La matière est historique/inactive et ne peut pas être utilisée '
+            'pour une affectation.'
+        )
+    section_inchangee = bool(
+        affectation and affectation.id_section == id_section
+    )
+    if (not section_inchangee and
+            (not objets['section'].actif or objets['section'].niveau is None or
+             not objets['section'].niveau.actif)):
+        return None, 'La section sélectionnée est inactive ou rattachée à un niveau inactif.'
     if id_groupe and objets['groupe'] is None:
         return None, 'Le groupe sélectionné est invalide.'
+    groupe_inchange = bool(
+        affectation and affectation.id_groupe == id_groupe
+    )
+    if (objets['groupe'] is not None and not groupe_inchange and
+            (not objets['groupe'].actif or objets['groupe'].section is None or
+             not objets['groupe'].section.actif or
+             objets['groupe'].section.niveau is None or
+             not objets['groupe'].section.niveau.actif)):
+        return None, 'Le groupe sélectionné est inactif ou rattaché à un niveau inactif.'
     if objets['groupe'] and objets['groupe'].id_section != id_section:
         return None, 'Le groupe sélectionné n’appartient pas à la section choisie.'
     if type_enseignement not in TYPES_ENSEIGNEMENT:
