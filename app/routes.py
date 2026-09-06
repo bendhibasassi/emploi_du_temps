@@ -1348,19 +1348,76 @@ def analyser_preparation_annee(annee_source, annee_cible):
     a_creer = []
     doublons_ignores = 0
     references_invalides = []
+    raisons_invalides = []
+    matieres_inactives = []
+    semestres_invalides = []
     for affectation in source:
-        groupe_valide = (
-            affectation.id_groupe is None or
-            groupes_sections.get(affectation.id_groupe) == affectation.id_section
-        )
-        references_valides = (
-            affectation.id_professeur in professeurs_valides and
-            affectation.id_matiere in matieres_valides and
-            affectation.id_section in sections_valides and
-            groupe_valide
-        )
-        if not references_valides:
+        if affectation.id_professeur not in professeurs_valides:
             references_invalides.append(affectation.id_affectation)
+            raisons_invalides.append({'id_affectation': affectation.id_affectation, 'raison': 'Professeur inexistant.'})
+            continue
+
+        matiere = Matiere.query.get(affectation.id_matiere)
+        section = Section.query.get(affectation.id_section)
+        groupe = Groupe.query.get(affectation.id_groupe) if affectation.id_groupe else None
+        raison = None
+        if matiere is None:
+            raison = 'Matière inexistante.'
+        elif not matiere.actif:
+            matieres_inactives.append({
+                'id_affectation': affectation.id_affectation,
+                'id_matiere': matiere.id_matiere,
+                'matiere': matiere.nom_matiere,
+            })
+            raison = 'Matière inactive.'
+        elif matiere.niveau is None:
+            raison = 'Niveau de matière inexistant.'
+        elif not matiere.niveau.actif:
+            raison = 'Niveau de matière inactif.'
+        elif section is None:
+            raison = 'Section inexistante.'
+        elif not section.actif:
+            raison = 'Section inactive.'
+        elif section.niveau is None:
+            raison = 'Niveau de section inexistant.'
+        elif not section.niveau.actif:
+            raison = 'Niveau de section inactif.'
+        elif matiere.id_niveau != section.id_niveau:
+            raison = 'Incohérence matière/section.'
+        elif affectation.type_enseignement == 'CM' and affectation.id_groupe is not None:
+            raison = 'Affectation CM avec groupe.'
+        elif affectation.type_enseignement in {'TD', 'TP'} and groupe is None:
+            raison = 'Affectation TD/TP sans groupe.'
+        elif affectation.type_enseignement not in TYPES_ENSEIGNEMENT:
+            raison = 'Type d’enseignement invalide.'
+        elif groupe is not None and not groupe.actif:
+            raison = 'Groupe inactif.'
+        elif groupe is not None and groupe.section is None:
+            raison = 'Section du groupe inexistante.'
+        elif groupe is not None and not groupe.section.actif:
+            raison = 'Section du groupe inactive.'
+        elif groupe is not None and groupe.section.niveau is None:
+            raison = 'Niveau du groupe inexistant.'
+        elif groupe is not None and not groupe.section.niveau.actif:
+            raison = 'Niveau du groupe inactif.'
+        elif groupe is not None and groupe.id_section != affectation.id_section:
+            raison = 'Incohérence groupe/section.'
+        if raison:
+            references_invalides.append(affectation.id_affectation)
+            raisons_invalides.append({'id_affectation': affectation.id_affectation, 'raison': raison})
+            continue
+        erreur_semestre = erreur_semestre_affectation(
+            matiere, affectation.semestre, exiger_semestre_matiere=True
+        )
+        if erreur_semestre:
+            semestres_invalides.append({
+                'id_affectation': affectation.id_affectation,
+                'id_matiere': matiere.id_matiere,
+                'matiere': matiere.nom_matiere,
+                'semestre_affectation': affectation.semestre,
+                'semestre_matiere': matiere.semestre,
+            })
+        if not matiere.actif or erreur_semestre:
             continue
 
         cle = cle_metier_affectation(affectation)
@@ -1377,6 +1434,9 @@ def analyser_preparation_annee(annee_source, annee_cible):
         'nombre_a_creer': len(a_creer),
         'doublons_ignores': doublons_ignores,
         'references_invalides': references_invalides,
+        'raisons_invalides': raisons_invalides,
+        'matieres_inactives': matieres_inactives,
+        'semestres_invalides': semestres_invalides,
     }
 
 
