@@ -1413,6 +1413,9 @@ def ajouter_seance():
         if jour not in JOURS:
             flash('❌ Jour invalide !', 'danger')
             return redirect(url_for('main.ajouter_seance'))
+        if jour == 5:
+            flash('Le vendredi n’est pas autorisé pour la planification.', 'danger')
+            return redirect(url_for('main.ajouter_seance'))
 
         creneau_demande = Creneau.query.get(id_creneau)
         if creneau_demande is None:
@@ -1681,6 +1684,9 @@ def modifier_seance(id_seance):
                            (salle_choisie.actif or id_salle == seance.id_salle))
         if jour not in JOURS or not Creneau.query.get(id_creneau) or not salle_autorisee:
             flash('❌ Jour, créneau ou salle invalide.', 'danger')
+            return redirect(url_for('main.modifier_seance', id_seance=id_seance))
+        if jour == 5:
+            flash('Le vendredi n’est pas autorisé pour la planification.', 'danger')
             return redirect(url_for('main.modifier_seance', id_seance=id_seance))
 
         conflits = verifier_conflits_seance(
