@@ -1,103 +1,182 @@
-# importer_affectations.py
-"""
-Script pour importer les affectations depuis un fichier Excel
-"""
+"""Import atomique des affectations de CM depuis un fichier Excel."""
+
+import os
+import sys
+
 import pandas as pd
 from sqlalchemy import create_engine
-from config import DATABASE_URI
 from sqlalchemy.orm import sessionmaker
-from app.models import Professeur, Matiere, Section, Affectation, AnneeUniversitaire
-import os
 
-print("=" * 70)
-print("📚 IMPORT DES AFFECTATIONS")
-print("=" * 70)
+from app.models import (
+    Affectation,
+    AnneeUniversitaire,
+    Seance,
+)
+from app.services.import_affectations import valider_lignes_import
+from config import DATABASE_URI
 
-# === 1. Connexion à la base ===
-engine = create_engine(DATABASE_URI)
-Session = sessionmaker(bind=engine)
-session = Session()
 
-# === 2. Récupérer l'année universitaire ===
-annee = session.query(AnneeUniversitaire).filter_by(active=True).first()
-if not annee:
-    print("❌ Aucune année universitaire active trouvée !")
-    exit()
+DEFAULT_FILE = "Affectations_corrigees.xlsx"
+REQUIRED_COLUMNS = {
+    "Professeur",
+    "Matière",
+    "Section",
+    "Type (CM/TD)",
+    "Semestre",
+}
 
-print(f"📅 Année universitaire : {annee.libelle} (ID: {annee.id_annee})")
 
-# === 3. Charger le fichier Excel ===
-file_path = "Affectations_corrigees.xlsx"
-try:
-    df = pd.read_excel(file_path, sheet_name="Affectations")
-except FileNotFoundError:
-    print(f"❌ Fichier '{file_path}' non trouvé !")
-    exit()
-except Exception as e:
-    print(f"❌ Erreur de lecture : {e}")
-    exit()
+class ImportAffectationsError(RuntimeError):
+    """Signale un import invalide avant tout remplacement."""
 
-print(f"\n📊 {len(df)} lignes trouvées dans le fichier")
 
-# === 4. Supprimer les anciennes affectations ===
-print("\n🗑️ Suppression des affectations existantes...")
-count = session.query(Affectation).delete()
-session.commit()
-print(f"   ✅ {count} affectations supprimées")
+def clean_value(value):
+    """Convertit une cellule Excel vide en chaîne vide."""
+    return "" if pd.isna(value) else str(value).strip()
 
-# === 5. Importer les nouvelles affectations ===
-print("\n📥 Import des affectations...")
-compteur_ajoutees = 0
-compteur_erreurs = 0
 
-for index, row in df.iterrows():
-    prof_nom = str(row['Professeur']).strip()
-    matiere_nom = str(row['Matière']).strip()
-    section_nom = str(row['Section']).strip()
-    type_enseignement = str(row['Type (CM/TD)']).strip().upper()
-    semestre = str(row['Semestre']).strip()
+def ligne_validateur(row):
+    """Adapte une ligne Excel CM au format du validateur commun."""
+    return {
+        'Professeur': clean_value(row['Professeur']),
+        'Matiere': clean_value(row['Matière']),
+        'Section': clean_value(row['Section']),
+        'Groupe': clean_value(row.get('Groupe', '')),
+        'Type_enseignement': clean_value(row['Type (CM/TD)']),
+        'Semestre': row['Semestre'],
+        'Nb_seances_semaine': 2,
+        'Duree_seance_minutes': 90,
+        'Volume_total_minutes': '',
+        'Priorite': 50,
+        'Actif': True,
+    }
 
-    # Rechercher le professeur
-    prof = session.query(Professeur).filter_by(nom=prof_nom).first()
-    if not prof:
-        print(f"   ⚠️ Ligne {index+2}: Professeur '{prof_nom}' non trouvé")
-        compteur_erreurs += 1
-        continue
 
-    # Rechercher la matière
-    matiere = session.query(Matiere).filter_by(nom_matiere=matiere_nom).first()
-    if not matiere:
-        print(f"   ⚠️ Ligne {index+2}: Matière '{matiere_nom}' non trouvée")
-        compteur_erreurs += 1
-        continue
+def preparer_affectations(session, dataframe, annee):
+    """Valide toutes les lignes et prépare les objets sans les ajouter."""
+    colonnes_manquantes = REQUIRED_COLUMNS.difference(dataframe.columns)
+    if colonnes_manquantes:
+        raise ImportAffectationsError(
+            "Colonnes manquantes : " + ", ".join(sorted(colonnes_manquantes))
+        )
+    if dataframe.empty:
+        raise ImportAffectationsError(
+            "Le fichier ne contient aucune ligne ; aucun remplacement effectué."
+        )
 
-    # Rechercher la section
-    section = session.query(Section).filter_by(libelle=section_nom).first()
-    if not section:
-        print(f"   ⚠️ Ligne {index+2}: Section '{section_nom}' non trouvée")
-        compteur_erreurs += 1
-        continue
-
-    # Créer l'affectation
-    affectation = Affectation(
-        id_annee=annee.id_annee,
-        id_professeur=prof.id_professeur,
-        id_matiere=matiere.id_matiere,
-        id_section=section.id_section,
-        semestre=int(semestre.replace('S', '')) if semestre.startswith('S') else 1,
-        type_enseignement=type_enseignement,
-        nb_seances_semaine=1 if type_enseignement == 'TD' else 2,
-        duree_seance_minutes=90,
-        actif=True
+    rapport = valider_lignes_import(
+        session,
+        [ligne_validateur(row) for _, row in dataframe.iterrows()],
+        annee,
+        verifier_doublons_base=False,
     )
-    session.add(affectation)
-    compteur_ajoutees += 1
-    print(f"   ✅ Ajoutée : {prof.nom} → {matiere.nom_matiere} → {section.libelle} ({type_enseignement})")
+    erreurs = []
+    nouvelles_affectations = []
+    for resultat in rapport['resultats']:
+        if resultat['statut'] == 'ERREUR_BLOQUANTE':
+            erreurs.extend(
+                f"Ligne {resultat['ligne']}: {erreur}"
+                for erreur in resultat['erreurs']
+            )
+            continue
+        if resultat['statut'] == 'DOUBLON_IGNORE':
+            continue
+        valeurs = resultat['valeurs']
+        references = resultat['references']
+        if valeurs['type_enseignement'] != 'CM':
+            erreurs.append(
+                f"Ligne {resultat['ligne']}: type "
+                f"'{valeurs['type_enseignement']}' invalide (CM attendu)."
+            )
+            continue
+        nouvelles_affectations.append(Affectation(
+            id_annee=annee.id_annee,
+            id_professeur=references['professeur'].id_professeur,
+            id_matiere=references['matiere'].id_matiere,
+            id_section=references['section'].id_section,
+            id_groupe=getattr(references['groupe'], 'id_groupe', None),
+            semestre=valeurs['semestre'],
+            type_enseignement=valeurs['type_enseignement'],
+            nb_seances_semaine=valeurs['Nb_seances_semaine'],
+            duree_seance_minutes=valeurs['Duree_seance_minutes'],
+            volume_total_minutes=valeurs['Volume_total_minutes'],
+            priorite=valeurs['Priorite'],
+            actif=resultat['actif'],
+        ))
 
-# === 6. Valider ===
-session.commit()
-print(f"\n📊 Résumé :")
-print(f"   Affectations ajoutées : {compteur_ajoutees}")
-print(f"   Erreurs : {compteur_erreurs}")
-print("=" * 70)
-session.close()
+    if erreurs:
+        raise ImportAffectationsError("\n".join(erreurs))
+    if not nouvelles_affectations:
+        raise ImportAffectationsError(
+            "Aucune affectation valide ; aucun remplacement effectué."
+        )
+    return nouvelles_affectations
+
+
+def remplacer_affectations(session, nouvelles_affectations):
+    """Remplace toutes les affectations dans une transaction indivisible."""
+    if not nouvelles_affectations:
+        raise ImportAffectationsError(
+            "Aucune affectation valide ; aucun remplacement effectué."
+        )
+    seance_existante = session.query(Seance.id_seance).join(
+        Affectation, Seance.id_affectation == Affectation.id_affectation
+    ).first()
+    if seance_existante:
+        raise ImportAffectationsError(
+            "Import refusé : des affectations existantes possèdent des séances."
+        )
+
+    try:
+        supprimees = session.query(Affectation).delete(
+            synchronize_session="fetch"
+        )
+        session.add_all(nouvelles_affectations)
+        session.flush()
+        session.commit()
+        return supprimees, len(nouvelles_affectations)
+    except Exception:
+        session.rollback()
+        raise
+
+
+def main():
+    fichier = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_FILE
+    if not os.path.isabs(fichier):
+        fichier = os.path.join(os.path.dirname(__file__), fichier)
+
+    try:
+        dataframe = pd.read_excel(fichier, sheet_name="Affectations")
+    except FileNotFoundError as exc:
+        raise ImportAffectationsError(f"Fichier introuvable : {fichier}") from exc
+    except Exception as exc:
+        raise ImportAffectationsError(
+            f"Le fichier ne peut pas être lu : {exc}"
+        ) from exc
+
+    engine = create_engine(DATABASE_URI)
+    session = sessionmaker(bind=engine)()
+    try:
+        annee = session.query(AnneeUniversitaire).filter_by(active=True).first()
+        if annee is None:
+            raise ImportAffectationsError(
+                "Aucune année universitaire active trouvée."
+            )
+        nouvelles_affectations = preparer_affectations(
+            session, dataframe, annee
+        )
+        supprimees, ajoutees = remplacer_affectations(
+            session, nouvelles_affectations
+        )
+        print(f"Affectations supprimées : {supprimees}")
+        print(f"Affectations CM ajoutées : {ajoutees}")
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+        engine.dispose()
+
+
+if __name__ == "__main__":
+    main()

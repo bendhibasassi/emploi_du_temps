@@ -11,11 +11,8 @@ from sqlalchemy.orm import sessionmaker
 from app.models import (
     Affectation,
     AnneeUniversitaire,
-    Groupe,
-    Matiere,
-    Professeur,
-    Section,
 )
+from app.services.import_affectations import valider_lignes_import
 
 
 REQUIRED_COLUMNS = {
@@ -34,23 +31,69 @@ def clean_value(value):
     return "" if pd.isna(value) else str(value).strip()
 
 
-def parse_semester(value):
-    """Convertit S1, S2, etc. en entier."""
-    semester = clean_value(value).upper()
-    if semester.startswith("S"):
-        semester = semester[1:]
-    return int(semester)
+def ligne_validateur(row):
+    """Adapte une ligne Excel TD au format du validateur commun."""
+    return {
+        'Professeur': clean_value(row['Professeur']),
+        'Matiere': clean_value(row['Matière']),
+        'Section': clean_value(row['Section']),
+        'Groupe': clean_value(row['Groupe']),
+        'Type_enseignement': clean_value(row['Type']),
+        'Semestre': row['Semestre'],
+        'Nb_seances_semaine': 1,
+        'Duree_seance_minutes': 90,
+        'Volume_total_minutes': '',
+        'Priorite': 50,
+        'Actif': True,
+    }
 
 
-def find_professor(session, value):
-    """Recherche un professeur par nom ou par nom complet."""
-    name = clean_value(value)
-    professor = session.query(Professeur).filter_by(nom=name).first()
-    if professor:
-        return professor
-    return session.query(Professeur).filter(
-        (Professeur.nom + " " + Professeur.prenom) == name
-    ).first()
+def preparer_affectations_td(session, dataframe, annee):
+    """Valide les lignes TD et prépare les objets sans les ajouter."""
+    missing = REQUIRED_COLUMNS.difference(dataframe.columns)
+    if missing:
+        raise RuntimeError(
+            "Colonnes manquantes : " + ", ".join(sorted(missing))
+        )
+    rapport = valider_lignes_import(
+        session,
+        [ligne_validateur(row) for _, row in dataframe.iterrows()],
+        annee,
+        verifier_doublons_base=True,
+    )
+    nouvelles, ignorees, messages = [], 0, []
+    for resultat in rapport['resultats']:
+        if resultat['statut'] != 'PRETE_A_IMPORTER':
+            ignorees += 1
+            messages.extend(
+                f"Ligne {resultat['ligne']}: {message}"
+                for message in resultat['erreurs'] + resultat['avertissements']
+            )
+            continue
+        valeurs = resultat['valeurs']
+        references = resultat['references']
+        if valeurs['type_enseignement'] != 'TD':
+            ignorees += 1
+            messages.append(
+                f"Ligne {resultat['ligne']}: type "
+                f"'{valeurs['type_enseignement']}' ignore (TD attendu)."
+            )
+            continue
+        nouvelles.append(Affectation(
+            id_annee=annee.id_annee,
+            id_professeur=references['professeur'].id_professeur,
+            id_matiere=references['matiere'].id_matiere,
+            id_section=references['section'].id_section,
+            id_groupe=references['groupe'].id_groupe,
+            semestre=valeurs['semestre'],
+            type_enseignement=valeurs['type_enseignement'],
+            nb_seances_semaine=valeurs['Nb_seances_semaine'],
+            duree_seance_minutes=valeurs['Duree_seance_minutes'],
+            volume_total_minutes=valeurs['Volume_total_minutes'],
+            priorite=valeurs['Priorite'],
+            actif=resultat['actif'],
+        ))
+    return nouvelles, ignorees, messages
 
 
 def main():
@@ -71,87 +114,16 @@ def main():
         except FileNotFoundError as exc:
             raise RuntimeError(f"Fichier introuvable : {file_path}") from exc
 
-        missing = REQUIRED_COLUMNS.difference(dataframe.columns)
-        if missing:
-            raise RuntimeError(
-                "Colonnes manquantes : " + ", ".join(sorted(missing))
-            )
-
-        added = 0
-        skipped = 0
-
-        for index, row in dataframe.iterrows():
-            line_number = index + 2
-            professor = find_professor(session, row["Professeur"])
-            subject_name = clean_value(row["Matière"])
-            section_name = clean_value(row["Section"])
-            group_code = clean_value(row["Groupe"])
-            teaching_type = clean_value(row["Type"]).upper()
-
-            if professor is None:
-                print(f"Ligne {line_number}: professeur introuvable.")
-                skipped += 1
-                continue
-
-            subject = session.query(Matiere).filter_by(
-                nom_matiere=subject_name
-            ).first()
-            section = session.query(Section).filter_by(
-                libelle=section_name
-            ).first()
-            group = session.query(Groupe).filter_by(
-                id_section=section.id_section if section else None,
-                code_groupe=group_code,
-            ).first()
-
-            if subject is None or section is None or group is None:
-                print(f"Ligne {line_number}: matiere, section ou groupe introuvable.")
-                skipped += 1
-                continue
-
-            try:
-                semester = parse_semester(row["Semestre"])
-            except ValueError:
-                print(f"Ligne {line_number}: semestre invalide.")
-                skipped += 1
-                continue
-
-            if teaching_type != "TD":
-                print(f"Ligne {line_number}: type '{teaching_type}' ignore (TD attendu).")
-                skipped += 1
-                continue
-
-            existing = session.query(Affectation).filter_by(
-                id_annee=year.id_annee,
-                id_professeur=professor.id_professeur,
-                id_matiere=subject.id_matiere,
-                id_section=section.id_section,
-                id_groupe=group.id_groupe,
-                semestre=semester,
-                type_enseignement="TD",
-            ).first()
-            if existing:
-                skipped += 1
-                continue
-
-            session.add(
-                Affectation(
-                    id_annee=year.id_annee,
-                    id_professeur=professor.id_professeur,
-                    id_matiere=subject.id_matiere,
-                    id_section=section.id_section,
-                    id_groupe=group.id_groupe,
-                    semestre=semester,
-                    type_enseignement="TD",
-                    nb_seances_semaine=1,
-                    duree_seance_minutes=90,
-                    actif=True,
-                )
-            )
-            added += 1
+        nouvelles, skipped, messages = preparer_affectations_td(
+            session, dataframe, year
+        )
+        for message in messages:
+            print(message)
+        for affectation in nouvelles:
+            session.add(affectation)
 
         session.commit()
-        print(f"Affectations TD ajoutees : {added}")
+        print(f"Affectations TD ajoutees : {len(nouvelles)}")
         print(f"Lignes ignorees ou deja presentes : {skipped}")
     except Exception:
         session.rollback()
