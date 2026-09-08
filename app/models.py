@@ -84,17 +84,19 @@ class Section(db.Model):
     __tablename__ = "tbl_sections"
     
     id_section = db.Column(db.Integer, primary_key=True)
+    id_annee = db.Column(db.Integer, db.ForeignKey('tbl_annees_univ.id_annee'), nullable=True)
     id_niveau = db.Column(db.Integer, db.ForeignKey('tbl_niveaux.id_niveau'), nullable=False)
     code_section = db.Column(db.String(30), nullable=False)
     libelle = db.Column(db.String(150), nullable=False)
     effectif = db.Column(db.Integer, default=0)
     actif = db.Column(db.Boolean, default=True)
 
+    annee = db.relationship('AnneeUniversitaire', backref='sections', lazy=True)
     niveau = db.relationship('Niveau', backref='sections', lazy=True)
     groupes = db.relationship('Groupe', back_populates='section', lazy=True)
     
     __table_args__ = (
-        db.UniqueConstraint('id_niveau', 'code_section', name='uq_section_niveau_code'),
+        db.UniqueConstraint('id_annee', 'id_niveau', 'code_section', name='uq_section_annee_niveau_code'),
     )
     
     def __repr__(self):
