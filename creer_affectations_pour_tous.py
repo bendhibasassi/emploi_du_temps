@@ -20,7 +20,9 @@ with Session() as session:
         raise SystemExit(1)
 
     # Récupérer la première matière et section
-    matiere = session.query(Matiere).first()
+    matiere = session.query(Matiere).filter(
+        Matiere.actif.is_(True)
+    ).first()
     section = session.query(Section).first()
 
     if matiere is None or section is None:
