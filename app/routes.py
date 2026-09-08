@@ -2247,10 +2247,10 @@ def modifier_professeur(id_professeur):
             actif = request.form.get('actif') == 'on'
 
             # === NOUVEAUX CHAMPS ===
-            statut = request.form.get('statut', 'Permanent').strip()
-            peut_cm = request.form.get('peut_cm') == 'on'
-            peut_td = request.form.get('peut_td') == 'on'
-            peut_tp = request.form.get('peut_tp') == 'on'
+            statut = request.form['statut'].strip() if 'statut' in request.form else professeur.statut
+            peut_cm = request.form.get('peut_cm') == 'on' if 'peut_cm' in request.form else professeur.peut_cm
+            peut_td = request.form.get('peut_td') == 'on' if 'peut_td' in request.form else professeur.peut_td
+            peut_tp = request.form.get('peut_tp') == 'on' if 'peut_tp' in request.form else professeur.peut_tp
 
             # Validation du nom
             if not nom:
