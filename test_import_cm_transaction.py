@@ -106,7 +106,7 @@ class ImportCmTransactionTest(unittest.TestCase):
         with patch.object(
                 self.session, "commit", wraps=commit_reel) as commit:
             supprimees, ajoutees = remplacer_affectations(
-                self.session, nouvelles
+                self.session, nouvelles, self.annee
             )
         self.assertEqual(commit.call_count, 1)
         self.assertEqual((supprimees, ajoutees), (1, 1))
@@ -123,10 +123,19 @@ class ImportCmTransactionTest(unittest.TestCase):
         nouvelles = preparer_affectations(
             self.session, self.dataframe(), self.annee
         )
+        flush_reel = self.session.flush
+
+        def echouer_apres_suppression(*args, **kwargs):
+            if self.session.new:
+                with self.session.no_autoflush:
+                    self.assertEqual(self.session.query(Affectation).count(), 0)
+                raise RuntimeError("test flush après suppression")
+            return flush_reel(*args, **kwargs)
+
         with patch.object(
-                self.session, "flush", side_effect=RuntimeError("test flush")):
+                self.session, "flush", side_effect=echouer_apres_suppression):
             with self.assertRaises(RuntimeError):
-                remplacer_affectations(self.session, nouvelles)
+                remplacer_affectations(self.session, nouvelles, self.annee)
         self.assertEqual(self.ids_affectations(), [self.ancienne_id])
 
     def test_semestre_incompatible_conserve_ancienne(self):
@@ -225,7 +234,7 @@ class ImportCmTransactionTest(unittest.TestCase):
         )
 
         with self.assertRaises(ImportAffectationsError):
-            remplacer_affectations(self.session, nouvelles)
+            remplacer_affectations(self.session, nouvelles, self.annee)
         self.assertEqual(self.ids_affectations(), [self.ancienne_id])
         self.assertIsNotNone(self.session.get(Seance, seance_id))
 
@@ -237,6 +246,105 @@ class ImportCmTransactionTest(unittest.TestCase):
         with self.assertRaises(ImportAffectationsError):
             preparer_affectations(self.session, mixte, self.annee)
         self.assertEqual(self.ids_affectations(), [self.ancienne_id])
+
+    def creer_affectations_hors_perimetre(self):
+        autre_annee = AnneeUniversitaire(
+            libelle='2100-2101', date_debut=date(2100, 9, 1),
+            date_fin=date(2101, 6, 30), active=False,
+        )
+        groupe = Groupe(
+            id_section=self.section.id_section, code_groupe='G1',
+            nom_groupe='Groupe test', actif=True,
+        )
+        self.session.add_all([autre_annee, groupe])
+        self.session.flush()
+        affectations = []
+        for annee, type_enseignement in (
+                (self.annee, 'TD'), (self.annee, 'TP'),
+                (autre_annee, 'CM'), (autre_annee, 'TD'),
+                (autre_annee, 'TP')):
+            affectation = Affectation(
+                id_annee=annee.id_annee,
+                id_professeur=self.professeur.id_professeur,
+                id_matiere=self.matiere.id_matiere,
+                id_section=self.section.id_section,
+                id_groupe=groupe.id_groupe if type_enseignement != 'CM' else None,
+                semestre=3, type_enseignement=type_enseignement,
+                nb_seances_semaine=1, duree_seance_minutes=90, actif=True,
+            )
+            self.session.add(affectation)
+            affectations.append(affectation)
+        self.session.commit()
+        return affectations
+
+    def test_td_tp_et_autres_annees_conserves(self):
+        conservees = self.creer_affectations_hors_perimetre()
+        ids = [a.id_affectation for a in conservees]
+        nouvelles = preparer_affectations(
+            self.session, self.dataframe(), self.annee
+        )
+        self.assertEqual(
+            remplacer_affectations(self.session, nouvelles, self.annee), (1, 1)
+        )
+        self.session.expire_all()
+        for identifiant in ids:
+            with self.subTest(id_affectation=identifiant):
+                self.assertIsNotNone(self.session.get(Affectation, identifiant))
+        self.assertNotIn(self.ancienne_id, self.ids_affectations())
+        self.assertEqual(self.session.query(Affectation).count(), 6)
+
+    def test_seances_hors_perimetre_ne_bloquent_pas(self):
+        conservees = self.creer_affectations_hors_perimetre()
+        creneau = Creneau(
+            heure_debut=time(8, 0), heure_fin=time(9, 30), ordre=1, actif=True,
+        )
+        salle = Salle(
+            code_salle='HORS-CM', nom_salle='Salle test',
+            type_salle='AMPHI', capacite=50, actif=True,
+        )
+        self.session.add_all([creneau, salle])
+        self.session.flush()
+        seances = []
+        for jour, affectation in enumerate(conservees, 1):
+            seance = Seance(
+                id_annee=affectation.id_annee,
+                id_affectation=affectation.id_affectation,
+                jour=jour, id_creneau=creneau.id_creneau,
+                id_salle=salle.id_salle, semaine_type='TOUTES',
+                origine='AUTO', statut='PROPOSEE',
+            )
+            self.session.add(seance)
+            seances.append(seance)
+        self.session.commit()
+        liens = [(s.id_seance, s.id_affectation) for s in seances]
+        nouvelles = preparer_affectations(
+            self.session, self.dataframe(), self.annee
+        )
+        self.assertEqual(
+            remplacer_affectations(self.session, nouvelles, self.annee), (1, 1)
+        )
+        self.session.expire_all()
+        for id_seance, id_affectation in liens:
+            with self.subTest(id_seance=id_seance):
+                self.assertEqual(
+                    self.session.get(Seance, id_seance).id_affectation,
+                    id_affectation,
+                )
+                self.assertIsNotNone(
+                    self.session.get(Affectation, id_affectation)
+                )
+
+    def test_cm_inactif_annee_cible_remplace(self):
+        self.ancienne.actif = False
+        self.session.commit()
+        nouvelles = preparer_affectations(
+            self.session, self.dataframe(), self.annee
+        )
+        self.assertEqual(
+            remplacer_affectations(self.session, nouvelles, self.annee), (1, 1)
+        )
+        self.assertEqual(self.session.query(Affectation).count(), 1)
+        self.assertTrue(self.session.query(Affectation).one().actif)
 
     def test_fichier_vide_ne_vide_pas_les_affectations(self):
         vide = pd.DataFrame(columns=sorted({

@@ -113,22 +113,26 @@ def preparer_affectations(session, dataframe, annee):
     return nouvelles_affectations
 
 
-def remplacer_affectations(session, nouvelles_affectations):
-    """Remplace toutes les affectations dans une transaction indivisible."""
+def remplacer_affectations(session, nouvelles_affectations, annee):
+    """Remplace les CM de l'année cible dans une transaction indivisible."""
     if not nouvelles_affectations:
         raise ImportAffectationsError(
             "Aucune affectation valide ; aucun remplacement effectué."
         )
+    perimetre = (
+        Affectation.id_annee == annee.id_annee,
+        Affectation.type_enseignement == 'CM',
+    )
     seance_existante = session.query(Seance.id_seance).join(
         Affectation, Seance.id_affectation == Affectation.id_affectation
-    ).first()
+    ).filter(*perimetre).first()
     if seance_existante:
         raise ImportAffectationsError(
             "Import refusé : des affectations existantes possèdent des séances."
         )
 
     try:
-        supprimees = session.query(Affectation).delete(
+        supprimees = session.query(Affectation).filter(*perimetre).delete(
             synchronize_session="fetch"
         )
         session.add_all(nouvelles_affectations)
@@ -166,7 +170,7 @@ def main():
             session, dataframe, annee
         )
         supprimees, ajoutees = remplacer_affectations(
-            session, nouvelles_affectations
+            session, nouvelles_affectations, annee
         )
         print(f"Affectations supprimées : {supprimees}")
         print(f"Affectations CM ajoutées : {ajoutees}")
