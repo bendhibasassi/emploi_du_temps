@@ -21,10 +21,30 @@
         <dt class="col-sm-7">Affectations qui seraient créées</dt><dd class="col-sm-5"><strong>{{ analyse.nombre_a_creer }}</strong></dd>
         <dt class="col-sm-7">Doublons ignorés</dt><dd class="col-sm-5">{{ analyse.doublons_ignores }}</dd>
         <dt class="col-sm-7">Références invalides</dt><dd class="col-sm-5">{{ analyse.references_invalides|length }}</dd>
+        <dt class="col-sm-7">Matières historiques/inactives</dt><dd class="col-sm-5">{{ analyse.matieres_inactives|length }}</dd>
+        <dt class="col-sm-7">Semestres incohérents</dt><dd class="col-sm-5">{{ analyse.semestres_invalides|length }}</dd>
     </dl>
     <div class="alert alert-info">Les séances, indisponibilités et entrées d’historique ne seront pas copiées. L’année cible ne sera pas activée automatiquement.</div>
     {% if analyse.references_invalides %}
         <div class="alert alert-danger">Copie bloquée. Affectations source concernées : {{ analyse.references_invalides|join(', ') }}.</div>
+    {% elif analyse.matieres_inactives %}
+        <div class="alert alert-danger">
+            <p class="mb-1">Copie bloquée par des matières historiques/inactives :</p>
+            <ul class="mb-0">
+                {% for item in analyse.matieres_inactives %}
+                    <li>Affectation {{ item.id_affectation }} — matière {{ item.id_matiere }} {{ item.matiere }}.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% elif analyse.semestres_invalides %}
+        <div class="alert alert-danger">
+            <p class="mb-1">Copie bloquée par des semestres incohérents :</p>
+            <ul class="mb-0">
+                {% for item in analyse.semestres_invalides %}
+                    <li>Affectation {{ item.id_affectation }} — matière {{ item.id_matiere }} {{ item.matiere }} — semestre affectation {{ item.semestre_affectation }} — semestre matière {{ item.semestre_matiere or 'absent' }}.</li>
+                {% endfor %}
+            </ul>
+        </div>
     {% else %}
         <form method="POST" onsubmit="return confirm('Confirmer la copie contrôlée des affectations ?');">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

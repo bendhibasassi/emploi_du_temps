@@ -25,6 +25,7 @@ from app.services.database_viewer import (
     obtenir_metadonnees,
     obtenir_table_autorisee,
 )
+from app.services.affectation_rules import erreur_semestre_affectation
 from datetime import datetime
 
 
@@ -687,6 +688,11 @@ def lire_affectation_formulaire(affectation=None):
         return None, 'Les valeurs de semestre et de charge doivent être des entiers.'
     if not 1 <= semestre <= 6:
         return None, 'Le semestre doit être compris entre 1 et 6.'
+    erreur_semestre = erreur_semestre_affectation(
+        objets['matiere'], semestre, exiger_semestre_matiere=True
+    )
+    if erreur_semestre:
+        return None, erreur_semestre
     if nb_seances <= 0 or duree <= 0 or priorite < 0:
         return None, 'Séances, durée et priorité doivent contenir des valeurs valides.'
     if volume is not None and volume < 0:
@@ -1461,6 +1467,8 @@ def preparer_annee_universitaire():
             analyse = analyser_preparation_annee(source, cible)
 
     if request.method == 'POST':
+        if source is not None and cible is not None and source.id_annee != cible.id_annee:
+            analyse = analyser_preparation_annee(source, cible)
         if analyse is None:
             flash('La préparation ne peut pas être exécutée.', 'danger')
         elif request.form.get('confirmer') != 'on':
@@ -1468,6 +1476,11 @@ def preparer_annee_universitaire():
         elif analyse['references_invalides']:
             flash(
                 'La copie est bloquée par des références invalides dans la source.',
+                'danger'
+            )
+        elif analyse['matieres_inactives'] or analyse['semestres_invalides']:
+            flash(
+                'La copie est bloquee : matiere inactive ou semestre incoherent.',
                 'danger'
             )
         else:
