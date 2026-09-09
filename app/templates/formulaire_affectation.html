@@ -27,14 +27,69 @@
 <script>
     const matiereSelect = document.getElementById('id_matiere');
     const typeSelect = document.getElementById('type_enseignement');
+    const sectionSelect = document.getElementById('id_section');
+    const groupeSelect = document.getElementById('id_groupe');
+    const groupeVerrouille = groupeSelect ? groupeSelect.disabled : false;
     const warning = document.getElementById('indicateur-warning');
     function actualiserIndicateur() {
         const option = matiereSelect.options[matiereSelect.selectedIndex];
         const type = typeSelect.value;
         warning.hidden = !option || !((type === 'CM' && option.dataset.avecCm === '0') || (type === 'TD' && option.dataset.avecTd === '0'));
     }
+    function actualiserGroupes() {
+        if (!sectionSelect || !groupeSelect || groupeVerrouille) {
+            return;
+        }
+
+        const sectionId = sectionSelect.value;
+        const type = typeSelect.value;
+        const estCM = type === 'CM';
+
+        if (estCM) {
+            groupeSelect.value = '';
+            groupeSelect.disabled = true;
+            return;
+        }
+
+        groupeSelect.disabled = false;
+
+        let selectionValide = false;
+
+        Array.from(groupeSelect.options).forEach((option, index) => {
+            if (index === 0) {
+                option.hidden = false;
+                option.disabled = false;
+                return;
+            }
+
+            const appartient = (
+                sectionId &&
+                option.dataset.sectionId === sectionId
+            );
+
+            option.hidden = !appartient;
+            option.disabled = !appartient;
+
+            if (appartient && option.selected) {
+                selectionValide = true;
+            }
+        });
+
+        if (!selectionValide) {
+            groupeSelect.value = '';
+        }
+    }
+
     matiereSelect.addEventListener('change', actualiserIndicateur);
-    typeSelect.addEventListener('change', actualiserIndicateur);
+
+    typeSelect.addEventListener('change', () => {
+        actualiserIndicateur();
+        actualiserGroupes();
+    });
+
+    sectionSelect.addEventListener('change', actualiserGroupes);
+
     actualiserIndicateur();
+    actualiserGroupes();
 </script>
 {% endblock %}
