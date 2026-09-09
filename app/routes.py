@@ -10,7 +10,7 @@ from flask import (
     url_for, flash, send_file,
 )
 from werkzeug.security import check_password_hash
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload, selectinload, load_only
 from app import db
@@ -418,8 +418,24 @@ def index():
         indisponibilites = 0
     else:
         affectations = Affectation.query.filter_by(id_annee=annee_id).all()
-        seances = Seance.query.filter_by(id_annee=annee_id).all()
-        affectations_sans_seance = Affectation.query.outerjoin(Seance).filter(
+        seances = Seance.query.filter(
+            Seance.id_annee == annee_id,
+            or_(
+                Seance.statut.is_(None),
+                Seance.statut != 'ANNULEE'
+            )
+        ).all()
+        affectations_sans_seance = Affectation.query.outerjoin(
+            Seance,
+            and_(
+                Seance.id_affectation == Affectation.id_affectation,
+                Seance.id_annee == annee_id,
+                or_(
+                    Seance.statut.is_(None),
+                    Seance.statut != 'ANNULEE'
+                )
+            )
+        ).filter(
             Affectation.id_annee == annee_id,
             Seance.id_seance.is_(None)
         ).count()
