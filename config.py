@@ -6,7 +6,17 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-DATABASE_PATH = PROJECT_ROOT / "emploi_du_temps.db"
+
+# Par defaut, l'application utilise la base principale.
+# Pour un environnement de test, EDT_DATABASE_PATH permet de choisir
+# explicitement une autre base SQLite sans modifier le code.
+_database_path_env = os.environ.get("EDT_DATABASE_PATH")
+
+if _database_path_env:
+    DATABASE_PATH = Path(_database_path_env).expanduser().resolve()
+else:
+    DATABASE_PATH = PROJECT_ROOT / "emploi_du_temps.db"
+
 DATABASE_URI = f"sqlite:///{DATABASE_PATH.as_posix()}"
 
 # En production, définir EDT_SECRET_KEY avec une valeur stable et aléatoire.

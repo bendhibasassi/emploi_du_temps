@@ -587,6 +587,10 @@ def contexte_formulaire_affectation(affectation=None):
     groupes_query = Groupe.query.join(Section).join(Niveau).filter(
         Groupe.actif.is_(True), Section.actif.is_(True), Niveau.actif.is_(True)
     )
+    niveaux_affectation_query = Niveau.query.join(Matiere).filter(
+        Niveau.actif.is_(True),
+        Matiere.actif.is_(True)
+    ).distinct()
     if affectation:
         matieres_query = matieres_query.union(
             Matiere.query.filter(Matiere.id_matiere == affectation.id_matiere)
@@ -598,6 +602,42 @@ def contexte_formulaire_affectation(affectation=None):
             groupes_query = groupes_query.union(
                 Groupe.query.filter(Groupe.id_groupe == affectation.id_groupe)
             )
+    annee_active = AnneeUniversitaire.query.filter_by(
+        active=True
+    ).first()
+
+    annee_formulaire_id = (
+        affectation.id_annee
+        if affectation is not None
+        else (
+            annee_active.id_annee
+            if annee_active is not None
+            else None
+        )
+    )
+
+    if annee_formulaire_id is not None:
+        sections_query = sections_query.filter(
+            Section.id_annee == annee_formulaire_id
+        )
+
+        groupes_query = groupes_query.filter(
+            Section.id_annee == annee_formulaire_id
+        )
+
+    niveaux_structure_prete_ids = set()
+
+    if annee_formulaire_id is not None:
+        niveaux_structure_prete_ids = {
+            id_niveau
+            for id_niveau, in db.session.query(
+                Section.id_niveau
+            ).filter(
+                Section.id_annee == annee_formulaire_id,
+                Section.actif.is_(True)
+            ).distinct().all()
+        }
+
     return {
         'affectation': affectation,
         'annees': AnneeUniversitaire.query.order_by(
@@ -606,6 +646,10 @@ def contexte_formulaire_affectation(affectation=None):
         'professeurs': Professeur.query.order_by(
             Professeur.nom, Professeur.prenom
         ).all(),
+        'niveaux_affectation': niveaux_affectation_query.order_by(
+            Niveau.code_niveau
+        ).all(),
+        'niveaux_structure_prete_ids': niveaux_structure_prete_ids,
         'matieres': matieres_query.order_by(Matiere.code_matiere).all(),
         'sections': sections_query.options(joinedload(Section.niveau)).order_by(
             Section.id_niveau, Section.code_section
@@ -614,7 +658,7 @@ def contexte_formulaire_affectation(affectation=None):
             Groupe.id_section, Groupe.code_groupe
         ).all(),
         'types_enseignement': TYPES_ENSEIGNEMENT,
-        'annee_active': AnneeUniversitaire.query.filter_by(active=True).first(),
+        'annee_active': annee_active,
     }
 
 
@@ -640,13 +684,16 @@ def lire_affectation_formulaire(affectation=None):
     matiere_inchangee = bool(
         affectation and affectation.id_matiere == id_matiere
     )
+    if not matiere_inchangee and not objets['matiere'].actif:
+        return None, 'La matière est historique/inactive et ne peut pas être utilisée pour une affectation.'
+
     if (not matiere_inchangee and
-            (not objets['matiere'].actif or objets['matiere'].niveau is None or
-             not objets['matiere'].niveau.actif)):
-        return None, (
-            'La matière est historique/inactive et ne peut pas être utilisée '
-            'pour une affectation.'
-        )
+                objets['matiere'].niveau is None):
+        return None, 'Le niveau de la matière est inexistant.'
+
+    if (not matiere_inchangee and
+                not objets['matiere'].niveau.actif):
+        return None, 'Le niveau de la matière est inactif et ne peut pas être utilisé pour une affectation.'
     section_inchangee = bool(
         affectation and affectation.id_section == id_section
     )
@@ -654,6 +701,11 @@ def lire_affectation_formulaire(affectation=None):
             (not objets['section'].actif or objets['section'].niveau is None or
              not objets['section'].niveau.actif)):
         return None, 'La section sélectionnée est inactive ou rattachée à un niveau inactif.'
+    if objets['section'].id_annee != id_annee:
+        return None, (
+            'La section sélectionnée n’appartient pas à '
+            'l’année universitaire choisie.'
+        )
     if id_groupe and objets['groupe'] is None:
         return None, 'Le groupe sélectionné est invalide.'
     groupe_inchange = bool(
@@ -752,6 +804,21 @@ def ajouter_affectation():
     """Créer une affectation pédagogique."""
     if request.method == 'POST':
         valeurs, erreur = lire_affectation_formulaire()
+
+        if not erreur:
+            annee_active = AnneeUniversitaire.query.filter_by(
+                active=True
+            ).first()
+
+            if annee_active is None:
+                erreur = (
+                    'Aucune ann?e universitaire de travail n?est active.'
+                )
+            elif valeurs['id_annee'] != annee_active.id_annee:
+                erreur = (
+                    'L?ann?e universitaire doit ?tre l?ann?e de travail active.'
+                )
+
         if erreur:
             flash(erreur, 'danger')
         else:
