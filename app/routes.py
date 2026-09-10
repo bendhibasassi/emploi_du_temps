@@ -681,6 +681,12 @@ def lire_affectation_formulaire(affectation=None):
     requis = ('annee', 'professeur', 'matiere', 'section')
     if any(objets[cle] is None for cle in requis):
         return None, 'Année, professeur, matière et section valides sont obligatoires.'
+    professeur_inchange = bool(
+        affectation and affectation.id_professeur == id_professeur
+    )
+    if not professeur_inchange and not objets['professeur'].actif:
+        return None, 'Le professeur sélectionné est inactif et ne peut pas être utilisé pour une affectation.'
+
     matiere_inchangee = bool(
         affectation and affectation.id_matiere == id_matiere
     )
